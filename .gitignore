@@ -1,0 +1,8 @@
+source_scans/
+legs_private.py
+private/
+*.env
+.env*
+node_modules/
+__pycache__/
+.DS_Store
