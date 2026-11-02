@@ -46,8 +46,17 @@ export function recName(rec) {
   return "rec" + String(rec).padStart(3, "0");
 }
 
+/* the machine writes ISO times; the chain wants unix seconds. Both are accepted. */
+function toUnix(v) {
+  if (typeof v === "number") return v;
+  if (typeof v === "string" && /^\d+$/.test(v)) return Number(v);
+  const t = Date.parse(v);
+  return Number.isFinite(t) ? Math.floor(t / 1000) : NaN;
+}
 function readJson(p) {
-  return JSON.parse(fs.readFileSync(p, "utf8"));
+  const o = JSON.parse(fs.readFileSync(p, "utf8"));
+  if (o && typeof o === "object" && "windowOpen" in o) { o.windowOpen = toUnix(o.windowOpen); o.deadline = toUnix(o.deadline); }
+  return o;
 }
 
 function writeJson(p, obj) {
