@@ -1,0 +1,39 @@
+{
+  "network": "sepolia",
+  "startedAt": "2026-11-02T11:22:37.064Z",
+  "txs": [
+    {
+      "label": "lockScene",
+      "hash": "0x4d297d565efc37e31832e52997b1d7e7fe3bbb35e43acf6c67ae36c90711511d",
+      "block": 12047822,
+      "status": 1,
+      "gasUsed": "130632"
+    }
+  ],
+  "assertions": [
+    {
+      "name": "signer is owner and registrar",
+      "pass": true,
+      "detail": "0x02A8018D9312c8b89269Cc3761dC95e7BEC21ab8 / 0x02A8018D9312c8b89269Cc3761dC95e7BEC21ab8"
+    },
+    {
+      "name": "scene locked",
+      "pass": true
+    },
+    {
+      "name": "capFor(325) is 5",
+      "pass": true,
+      "detail": "5"
+    },
+    {
+      "name": "fatal",
+      "pass": false,
+      "detail": "execution reverted (unknown custom error)"
+    }
+  ],
+  "ok": false,
+  "chainId": "11155111",
+  "contract": "0x0236ea903992457E0336FBB9eae66a2E089b952C",
+  "signer": "0x02A8018D9312c8b89269Cc3761dC95e7BEC21ab8",
+  "finishedAt": "2026-11-02T11:22:49.880Z"
+}
