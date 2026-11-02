@@ -88,9 +88,13 @@ window.BBGO.then(function(E){
   var cv=document.createElement('canvas'), dx=cv.getContext('2d'); document.body.appendChild(cv);
   var off=document.createElement('canvas'); off.width=off.height=IW; var ox=off.getContext('2d');
   var K=1, DW=IW;
-  function size(){ var S=Math.min(innerWidth,innerHeight)||IW*2; K=Math.max(1,Math.floor(S/IW)); DW=IW*K; cv.width=cv.height=DW;
-    cv.style.cssText='position:absolute;left:50%;top:50%;width:'+DW+'px;height:'+DW+'px;margin:-'+DW/2+'px 0 0 -'+DW/2+'px;image-rendering:pixelated;background:#000';
-    dx.imageSmoothingEnabled=false; markKey=''; }
+  /* the raster is scaled by a whole number of DEVICE pixels (even when above 2, so the half-size legend stays on the
+     font's pixel grid); text is drawn once per layout on its own layer, snapped to whole pixels and thresholded */
+  var txt=document.createElement('canvas'), tx=txt.getContext('2d'), textKey='';
+  function size(){ var dpr=window.devicePixelRatio||1, S=Math.floor(Math.min(innerWidth,innerHeight)*dpr)||IW*2; K=Math.max(1,Math.floor(S/IW)); if(K>2&&K%2) K--; DW=IW*K;
+    cv.width=cv.height=txt.width=txt.height=DW; var cs=DW/dpr;
+    cv.style.cssText='position:absolute;left:50%;top:50%;width:'+cs+'px;height:'+cs+'px;margin:-'+cs/2+'px 0 0 -'+cs/2+'px;image-rendering:pixelated;background:#000';
+    dx.imageSmoothingEnabled=false; markKey=''; textKey=''; }
   var G=build(), marks=null, markKey='';
   /* the curtain and its reflection are rasterised once per shape into per-pixel samples (texture position, light,
      coverage, painter order resolved); each frame only looks the loop up through them: no per-frame clipping or
@@ -133,7 +137,7 @@ window.BBGO.then(function(E){
       d[o]=(tex[p00]*w00+tex[p10]*w10+tex[p01]*w01+tex[p11]*w11)*m; d[o+1]=(tex[p00+1]*w00+tex[p10+1]*w10+tex[p01+1]*w01+tex[p11+1]*w11)*m;
       d[o+2]=(tex[p00+2]*w00+tex[p10+2]*w10+tex[p01+2]*w01+tex[p11+2]*w11)*m; d[o+3]=A[i]; } }
   addEventListener('resize',size); size();
-  function silk(t,x,y,px,col,al){ dx.font=px+"px Silkscreen, monospace"; dx.fillStyle=col; dx.textBaseline='top'; dx.textAlign=al||'left'; dx.fillText(t,x,y); }
+  function silk(t,x,y,px,col){ tx.font=px+"px Silkscreen, monospace"; tx.fillStyle=col; tx.textBaseline='top'; tx.textAlign='left'; tx.fillText(t,Math.round(x),Math.round(y)); }
   function measure(t){ ox.font="8px Silkscreen, monospace"; return Math.ceil(ox.measureText(t).width); }
 
   function frame(g){
@@ -152,13 +156,17 @@ window.BBGO.then(function(E){
       G.legs.forEach(function(l,li){ var i0=li?G.legs[li-1].i1:0, pa=cam.P(base[i0]), pb=cam.P(base[l.i1]), mid=cam.P(base[Math.round((i0+l.i1)/2)]);
         function out(p){ var dx_=p[0]-mid[0], dy_=p[1]-mid[1], ll=Math.hypot(dx_,dy_)||1; return [dx_/ll,dy_/ll]; }
         if(li===0) ends.push({p:pa,out:out(pa),text:sealed?'':l.dep,dot:true});
-        if(!sealed) ends.push({p:pb,out:out(pb),text:l.arr,dot:true}); });
+        if(!sealed&&li===G.legs.length-1) ends.push({p:pb,out:out(pb),text:l.arr,dot:true}); });
+      /* the 1/1 marks only where the journey began and ended; the stops between are named in the legend */
       if(sealed&&prog<1){ var pp=cam.P(base[Math.min(n,kmax)]); ends.push({p:pp,out:[0,1],text:'',dot:true}); }
       marks=placeMarks(m,ends,measure); }
     ox.fillStyle='#fff'; marks.dots.forEach(function(d){ ox.fillRect(Math.round(d[0])-1,Math.round(d[1])-1,3,3); });
     dx.drawImage(off,0,0,DW,DW); overlay(); }
   /* labels and legend are drawn at display resolution over the raster */
-  function overlay(){
+  function overlay(){ if(textKey!==markKey){ textKey=markKey; tx.clearRect(0,0,DW,DW); texts();
+      var im=tx.getImageData(0,0,DW,DW), d=im.data; for(var i=3;i<d.length;i+=4) d[i]=d[i]>=110?255:0; tx.putImageData(im,0,0); }
+    dx.drawImage(txt,0,0); }
+  function texts(){
     marks.labs.forEach(function(l){ silk(l[2],l[0]*K,l[1]*K,8*K,'#fff'); });
     /* the legend: label and hash while sealed; the record once landed */
     var lx=8*K, ly=DW-25*K, u=4*K, hh=(BB.passHash||'').toUpperCase();
@@ -176,6 +184,6 @@ window.BBGO.then(function(E){
     T0=Date.now(); requestAnimationFrame(tick); };
   wk.postMessage({t:'job',job:Object.assign({},J,{__i:0}),step:true});
   var lastG=-1; function tick(){ requestAnimationFrame(tick); var g=Math.floor((Date.now()-T0)/40)%(N*8); if(g===lastG) return; lastG=g; frame(g); }
-  try{ var ff=new FontFace('Silkscreen','url(data:font/ttf;base64,'+String(window.BBF||'').trim()+')'); ff.load().then(function(f){ document.fonts.add(f); markKey=''; }); }catch(e){}
+  try{ var ff=new FontFace('Silkscreen','url(data:font/ttf;base64,'+String(window.BBF||'').trim()+')'); ff.load().then(function(f){ document.fonts.add(f); markKey=''; textKey=''; }); }catch(e){}
 });
 })();
