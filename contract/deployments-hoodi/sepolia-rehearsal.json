@@ -1,0 +1,160 @@
+{
+  "network": "sepolia",
+  "startedAt": "2026-11-02T13:41:50.786Z",
+  "txs": [
+    {
+      "label": "lockScene",
+      "hash": "0xf0d310ee02778ff267a0f143bd09818fe2456d004c7a793045d0359ff1a2cff2",
+      "block": 3936484,
+      "status": 1,
+      "gasUsed": "48656"
+    },
+    {
+      "label": "file",
+      "hash": "0xa6bff41873792992304e486992708e4d52ee0b6ad6099146493db705add4a22a",
+      "block": 3936486,
+      "status": 1,
+      "gasUsed": "148073"
+    },
+    {
+      "label": "mint 1",
+      "hash": "0x5faf54fd80208ce31555a695d0e2c54969cebce28aed9501435f8905b5ff8c67",
+      "block": 3936488,
+      "status": 1,
+      "gasUsed": "115092"
+    },
+    {
+      "label": "mint 2",
+      "hash": "0xfced6084fc3bbfec97e4f0415c2a9173657ef61f2c9d88bdcca049cdce6da226",
+      "block": 3936488,
+      "status": 1,
+      "gasUsed": "72992"
+    },
+    {
+      "label": "land",
+      "hash": "0xb89b781bb925a8da84493ebaca723c7d4a9821dd3eccacbc6f37eaa389a949ac",
+      "block": 3936498,
+      "status": 1,
+      "gasUsed": "144308"
+    },
+    {
+      "label": "startAuction",
+      "hash": "0x3da9184d9f4d5a2a050cad3034be56273dfe4b4715df95e69f5b81f89ecd5506",
+      "block": 3936500,
+      "status": 1,
+      "gasUsed": "82008"
+    },
+    {
+      "label": "bid",
+      "hash": "0xdad0516a4fa65993beeaf1e60b22e2a45fcf79907e356315919b966871e623ae",
+      "block": 3936502,
+      "status": 1,
+      "gasUsed": "73769"
+    },
+    {
+      "label": "settleAuction",
+      "hash": "0x77221b1878978a3f88b883e5a32e62f000b4517dda54f43234980efee726aca5",
+      "block": 3936547,
+      "status": 1,
+      "gasUsed": "73368"
+    }
+  ],
+  "assertions": [
+    {
+      "name": "signer is owner and registrar",
+      "pass": true,
+      "detail": "0x02A8018D9312c8b89269Cc3761dC95e7BEC21ab8 / 0x02A8018D9312c8b89269Cc3761dC95e7BEC21ab8"
+    },
+    {
+      "name": "scene locked",
+      "pass": true
+    },
+    {
+      "name": "capFor(325) is 5",
+      "pass": true,
+      "detail": "5"
+    },
+    {
+      "name": "file() simulates cleanly after the lock",
+      "pass": true,
+      "detail": "ok"
+    },
+    {
+      "name": "record filed with expected price and cap",
+      "pass": true,
+      "detail": "48733333333333333"
+    },
+    {
+      "name": "treasury delta equals 2x price over the mint blocks",
+      "pass": true,
+      "detail": "97466666666666666 vs 97466666666666666"
+    },
+    {
+      "name": "contract holds nothing",
+      "pass": true
+    },
+    {
+      "name": "minted tokens owned by signer",
+      "pass": true
+    },
+    {
+      "name": "sealed tokenURI has no dossier fields",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "sealed attributes are REC, STATE, HASH",
+      "pass": true
+    },
+    {
+      "name": "sealed state is SEALED",
+      "pass": true
+    },
+    {
+      "name": "record landed",
+      "pass": true
+    },
+    {
+      "name": "mint reverts after landing with WindowClosed",
+      "pass": true,
+      "detail": "WindowClosed"
+    },
+    {
+      "name": "declassified attributes appear",
+      "pass": true,
+      "detail": "{\"REC\":1,\"STATE\":\"DECLASSIFIED\",\"HASH\":\"0x1558f6c556d2647cd2c1d54b6dcd6e7e6fcc3b618561664d4745c2cb47785bc9\",\"ROUTE\":\"DPS > TPE\",\"DATE\":\"2026-11-03\",\"SEAT\":\"14A\",\"BLOCK MINUTES\":\"325\",\"KM\":\"3780\",\"AIRCRAFT\":\"A333\",\"EDITION CAP\":5,\"MINTED\":2}"
+    },
+    {
+      "name": "declassified page carries the dossier",
+      "pass": true
+    },
+    {
+      "name": "journeyCount fixed",
+      "pass": true
+    },
+    {
+      "name": "signer is high bidder",
+      "pass": true
+    },
+    {
+      "name": "ownerOf(0) is the bidder",
+      "pass": true
+    },
+    {
+      "name": "treasury delta on settle equals the bid",
+      "pass": true,
+      "detail": "1000000000000000 vs 1000000000000000"
+    },
+    {
+      "name": "contract holds nothing at the end",
+      "pass": true
+    }
+  ],
+  "ok": true,
+  "chainId": "560048",
+  "contract": "0x0236ea903992457E0336FBB9eae66a2E089b952C",
+  "signer": "0x02A8018D9312c8b89269Cc3761dC95e7BEC21ab8",
+  "rec": "1",
+  "passHash": "0x1558f6c556d2647cd2c1d54b6dcd6e7e6fcc3b618561664d4745c2cb47785bc9",
+  "finishedAt": "2026-11-02T13:56:38.839Z"
+}
