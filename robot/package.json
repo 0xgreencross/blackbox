@@ -1,0 +1,14 @@
+{
+  "name": "blackbox-robot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node robot.mjs",
+    "test": "node selftest.mjs"
+  },
+  "dependencies": {
+    "ethers": "^6.13.4"
+  }
+}

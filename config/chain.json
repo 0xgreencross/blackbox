@@ -1,0 +1,4 @@
+{
+  "mainnet": { "contract": "", "rpc": "https://ethereum-rpc.publicnode.com", "chainId": 1 },
+  "sepolia": { "contract": "", "rpc": "https://ethereum-sepolia-rpc.publicnode.com", "chainId": 11155111 }
+}

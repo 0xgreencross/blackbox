@@ -1,0 +1,44 @@
+name: BLACKBOX robot
+# Files, lands and settles on chain. Reads chain state before every send.
+# Receipts are committed back to records/.
+on:
+  push:
+    paths: ["records/**", "config/**"]
+  workflow_dispatch: {}
+  schedule:
+    - cron: "*/15 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: robot
+  cancel-in-progress: false
+
+jobs:
+  run:
+    if: ${{ !contains(github.event.head_commit.message, '[robot-receipt]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - name: install deps
+        working-directory: robot
+        run: npm ci --no-audit --no-fund
+      - name: run robot
+        env:
+          REGISTRAR_KEY: ${{ secrets.REGISTRAR_KEY }}
+        run: node robot/robot.mjs
+      - name: commit receipts
+        if: always()
+        run: |
+          git config user.name "blackbox-robot"
+          git config user.email "robot@blackbox.invalid"
+          git add -A records/
+          git diff --cached --quiet && exit 0
+          git commit -m "robot receipts [robot-receipt]"
+          if ! git push; then
+            git pull --rebase
+            git push
+          fi

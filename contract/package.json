@@ -1,0 +1,3 @@
+{ "name": "blackbox-contract", "version": "1.0.0", "private": true, "license": "CC0-1.0",
+  "scripts": { "test": "hardhat test", "compile": "hardhat compile" },
+  "devDependencies": { "@nomicfoundation/hardhat-toolbox": "^5.0.0", "hardhat": "^2.22.0", "@openzeppelin/contracts": "5.1.0", "solc": "0.8.24" } }
