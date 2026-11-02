@@ -1,0 +1,62 @@
+{
+  "network": "sepolia",
+  "startedAt": "2026-11-02T17:41:50.084Z",
+  "txs": [
+    {
+      "label": "lockScene",
+      "hash": "0xf5e05a57e076ebb2c08a63e821dad286c362c39dd88dd75a8129a635d472d858",
+      "block": 3937542,
+      "status": 1,
+      "gasUsed": "48656"
+    },
+    {
+      "label": "file",
+      "hash": "0xbd9c15fb08ee3556c71aedb3464d0b2fc5875d804f25679b0ca526bfca0bf832",
+      "block": 3937546,
+      "status": 1,
+      "gasUsed": "148073"
+    },
+    {
+      "label": "mint 1",
+      "hash": "0x7aa0d3a41fa546d4cbec7fb451ae93af1b40669ac7051b77abc706dc9ab02558"
+    }
+  ],
+  "assertions": [
+    {
+      "name": "signer is owner and registrar",
+      "pass": true,
+      "detail": "0x02A8018D9312c8b89269Cc3761dC95e7BEC21ab8 / 0x02A8018D9312c8b89269Cc3761dC95e7BEC21ab8"
+    },
+    {
+      "name": "scene locked",
+      "pass": true
+    },
+    {
+      "name": "capFor(325) is 5",
+      "pass": true,
+      "detail": "5"
+    },
+    {
+      "name": "file() simulates cleanly after the lock",
+      "pass": true,
+      "detail": "ok"
+    },
+    {
+      "name": "record filed with expected price and cap",
+      "pass": true,
+      "detail": "48733333333333333"
+    },
+    {
+      "name": "fatal",
+      "pass": false,
+      "detail": "could not coalesce error"
+    }
+  ],
+  "ok": false,
+  "chainId": "560048",
+  "contract": "0xAf2CC6eA316B0a28032508026F44e121e5804207",
+  "signer": "0x02A8018D9312c8b89269Cc3761dC95e7BEC21ab8",
+  "rec": "1",
+  "passHash": "0xd71e6364d3e03d399ce5269b5a7b663da0899c886b3c3dc506ae4c68fd6dc5ee",
+  "finishedAt": "2026-11-02T17:43:02.849Z"
+}

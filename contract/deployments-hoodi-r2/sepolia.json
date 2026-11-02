@@ -1,0 +1,137 @@
+{
+  "network": "sepolia",
+  "chainId": "560048",
+  "steps": {},
+  "deployer": "0x02A8018D9312c8b89269Cc3761dC95e7BEC21ab8",
+  "registrar": "0x02A8018D9312c8b89269Cc3761dC95e7BEC21ab8",
+  "chunks": [
+    {
+      "tx": "0x7a5c1b8dcfb6eb963fc82e605a66a5a07dfe32a9f29f82230969dd1a7365e466",
+      "block": 3937512,
+      "gasUsed": "5244489",
+      "address": "0x39C59170ea9898DC69834D871aEEE6531Ea26D7f"
+    },
+    {
+      "tx": "0x6d9227e926ed77a530cf163ddf0677a5220390a5b1e4fa7c6fa6aba3974520fc",
+      "block": 3937513,
+      "gasUsed": "5244489",
+      "address": "0x749d86BC4670306103C154278A1B01CB13D48FAA"
+    },
+    {
+      "tx": "0xdb4907d3569f81c955ee64264d891352c783047b68b996d98b6291faa5f3159c",
+      "block": 3937514,
+      "gasUsed": "5244489",
+      "address": "0xC19F17B935a4A0630521fA250221f813AAcc8B39"
+    },
+    {
+      "tx": "0xae95dea5a31f8254740005928c2182c715722c58eff21a277029cfb610f814a3",
+      "block": 3937515,
+      "gasUsed": "5244489",
+      "address": "0x277DC7cFEacf15c4AB069CfC94a17156953A1f5B"
+    },
+    {
+      "tx": "0x9af4ab3ef68043fd8ee87c97facd66db63721ca1409963e2ec15d59bf1b49f71",
+      "block": 3937516,
+      "gasUsed": "5244489",
+      "address": "0x4Ef9d411DE5d85605F9294d0644021f77FB1c2c0"
+    },
+    {
+      "tx": "0xd3fe0390fb158f7439ed23919131cbd5e26e178fd244883b2cbdccce473cc55b",
+      "block": 3937517,
+      "gasUsed": "5244489",
+      "address": "0x673D44b957054ce359308c441625D9B315908494"
+    },
+    {
+      "tx": "0xadbe5079da4f75f22fd94b20d7f6f1adedc2e3e3cf8a8fccbfa69b2680eb343d",
+      "block": 3937519,
+      "gasUsed": "5244489",
+      "address": "0x8572657aadA1B533F9C7a1682c4660b445Da8ECf"
+    },
+    {
+      "tx": "0x84b81cf897daf5845b765ecff28a1b17c63dfb7c420e1e4c5582fe3902cd7f47",
+      "block": 3937521,
+      "gasUsed": "5244489",
+      "address": "0xCB8d5015076f54BD4479FfdAc42F7bc33af415ea"
+    },
+    {
+      "tx": "0xc80564e02545ceba15b659152e514b112c99b3f13f675d423d78a5661390ad81",
+      "block": 3937524,
+      "gasUsed": "5244489",
+      "address": "0x95426F63068985B216c8872ffEb97f141A5652a9"
+    },
+    {
+      "tx": "0x26890d8eaf4a8d3c984c1e9ded9ffb2fd84dc6a4258240b7695eee0ab7a23d8f",
+      "block": 3937526,
+      "gasUsed": "5244489",
+      "address": "0x62C3027A1CcA1b9C0845626dB95AC3ef97A3b17f"
+    },
+    {
+      "tx": "0xd5768f3c56c36447db82f5a956630c1b9546e37395314f3296f61ac7dfece776",
+      "block": 3937527,
+      "gasUsed": "5244489",
+      "address": "0xf4274427556305a380cB4153e523A8e8Be05abF0"
+    },
+    {
+      "tx": "0x2cbb76b3124fc1add7284a2910b7ecbf93a670f2e7ba6084e7e91aa6df7c1481",
+      "block": 3937528,
+      "gasUsed": "5244489",
+      "address": "0xa99804de1647EAC6e04B65659a8018D5665C1a52"
+    },
+    {
+      "tx": "0x120c5335fb9a4b370ff4ae2e7d1485cc622c88aaf29cb3ab92cda5910de84024",
+      "block": 3937529,
+      "gasUsed": "5244489",
+      "address": "0xbfFF36F00Db48ACFCbd4559e13D21df41b7Cb8b3"
+    },
+    {
+      "tx": "0x78f57e2b7d5a41d536135a1a48fc6372f938bc8da1c225fef9a6677c94f56bb8",
+      "block": 3937530,
+      "gasUsed": "2908217",
+      "address": "0x527ca2c171dC51370f0b909302dD0c5228d5AfD4"
+    }
+  ],
+  "scene": [
+    {
+      "tx": "0xf69d6188288f605f466ac8de4f9b42b1e527b372c3aaf3e53391909c7f994194",
+      "block": 3937534,
+      "gasUsed": "5354469"
+    },
+    {
+      "tx": "0x0550987d7a4ddb312c7e8c6464d328cd7cddeb559e74085c0177f070eecc2bf6",
+      "block": 3937535,
+      "gasUsed": "2363949"
+    }
+  ],
+  "font": [
+    {
+      "tx": "0x2033adc4d5e598687e56cd21666decde74854cd803d5cb445672be6d451a6c9d",
+      "block": 3937536,
+      "gasUsed": "5354613"
+    },
+    {
+      "tx": "0x4bef38f3a47406ad7645cc651dac638c56f45522fec761ad1ff818ae398f684c",
+      "block": 3937537,
+      "gasUsed": "5337513"
+    },
+    {
+      "tx": "0xb590a98262f6edbb5c9e251e192ccc20a34f4c49c6e3c0c1768ffea11461ded0",
+      "block": 3937539,
+      "gasUsed": "5337513"
+    },
+    {
+      "tx": "0xe841de5a5d70ff1fd0c222dbda01b01f1f654eaa8fb27ef763f3570c30ade6fc",
+      "block": 3937541,
+      "gasUsed": "1044836"
+    }
+  ],
+  "contract": {
+    "tx": "0xa5e3de742b9be9eb16f0b0bd7ecb3c41d8417ffc181e242c9dc62f1563b32b38",
+    "block": 3937532,
+    "gasUsed": "7366107",
+    "address": "0xAf2CC6eA316B0a28032508026F44e121e5804207"
+  },
+  "sceneBytes": 34416,
+  "fontBytes": 76384,
+  "done": true,
+  "updatedAt": "2026-11-02T17:41:49.997Z"
+}
