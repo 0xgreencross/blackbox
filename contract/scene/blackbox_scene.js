@@ -101,9 +101,12 @@ window.BBGO.then(function(E){
       ov:{maskType:0,maskStyle:0,cx:16,cy:16,size:16,n:0,form:0},epoch:0,ver:6,wb:{fam:null,prim:null,cam:null,mod:null,gain:{}},gr:null}; }
   var src='"use strict";const W='+RES+',H='+RES+',FW=360,PVSW='+Math.max(160,Math.min(448,RES))+',PVVG='+Math.max(56,Math.min(88,Math.round(88*Math.min(1,RES/448))))+',OUTD=0;const TAU=6.283185307179586;\n'+E.V3_CORE+'\n'+E.V3_CORE2+'\n'+E.V3_DRIVER;
   var wk=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'}))), J=null, frames=new Array(N), got=0, pal=null, PK=0, KBEST=0, LBEST=-1, probing=true;
-  /* a loop must fill its curtain: probe frame 0 of up to 8 rolls (same scheme) and keep the first that lights at least 55% of the field */
-  function litOf(b,p){ var n=0; for(var i=0;i<b.length;i++){ var c=p[b[i]]; if(c&&Math.max(c[0],c[1],c[2])>40) n++; } return n/b.length; }
-  function start(k,probe){ PK=k; probing=probe; J=job(BB.seed>>>0,sealed,k); frames=new Array(N); got=0; pal=null; wk.postMessage({t:'job',job:Object.assign({},J,{__i:0}),step:true}); }
+  /* a loop must fill its curtain across the whole loop: probe frames 0, 12 and 24 of up to 16 rolls (same scheme) and keep
+     the first whose field, once lifted, is at least 55% lit on average and 30% at its darkest frame; the probed frames are kept */
+  var PROBE=[0,12,24], pf=0;
+  function litOf(b,p){ var n=0; for(var i=0;i<b.length;i++){ var c=p[b[i]]; if(c&&Math.max(c[0],c[1],c[2])>60) n++; } return n/b.length; }
+  function req(i){ wk.postMessage({t:'job',job:Object.assign({},J,{__i:i}),step:true}); }
+  function start(k,probe){ PK=k; probing=probe; pf=0; J=job(BB.seed>>>0,sealed,k); frames=new Array(N); got=0; pal=null; req(probe?PROBE[0]:0); }
 
   /* display: integer upscale of the 240 raster, centred */
   var cv=document.createElement('canvas'), dx=cv.getContext('2d'); document.body.appendChild(cv);
@@ -158,11 +161,13 @@ window.BBGO.then(function(E){
 
   var T0=Date.now(), tiles=null;
   wk.onmessage=function(e){ var m=e.data; if(m.t==='meta'){ pal=m.pal; return; } if(m.t!=='pv') return;
-    if(probing){ var b=new Uint8Array(m.buf), L=litOf(b,pal); if(L>LBEST){ LBEST=L; KBEST=PK; }
-      if(L<.55&&PK<7){ start(PK+1,true); return; }
-      probing=false; if(L<.55&&KBEST!==PK){ start(KBEST,false); return; } }
     if(!frames[m.i]){ frames[m.i]=new Uint8Array(m.buf); got++; }
-    if(got<N){ var nx=0; while(frames[nx]) nx++; wk.postMessage({t:'job',job:Object.assign({},J,{__i:nx}),step:true}); return; }
+    if(probing){ pf++; if(pf<PROBE.length){ req(PROBE[pf]); return; }
+      var bp=brighten(pal,PROBE.map(function(i){ return frames[i]; })), ls=PROBE.map(function(i){ return litOf(frames[i],bp); }), L=(ls[0]+ls[1]+ls[2])/3, ok=L>=.55&&Math.min.apply(null,ls)>=.3;
+      if(L>LBEST){ LBEST=L; KBEST=PK; }
+      if(!ok&&PK<15){ start(PK+1,true); return; }
+      probing=false; if(!ok&&KBEST!==PK){ start(KBEST,false); return; } }
+    if(got<N){ var nx=0; while(frames[nx]) nx++; req(nx); return; }
     wk.terminate(); pal=brighten(pal,frames); tiles=frames.map(function(buf){ var c=document.createElement('canvas'); c.width=RES*2; c.height=RES; var x=c.getContext('2d'), im=x.createImageData(RES,RES), d=im.data;
       for(var i=0,p=0;i<RES*RES;i++,p+=4){ var k=pal[buf[i]]||pal[0]; d[p]=k[0];d[p+1]=k[1];d[p+2]=k[2];d[p+3]=255; } x.putImageData(im,0,0); x.putImageData(im,RES,0); return c; });
     T0=Date.now(); requestAnimationFrame(tick); };
