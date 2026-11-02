@@ -89,7 +89,9 @@ async function main() {
           delete slot.tx; delete slot.address;
           const r = await send(`chunk ${i}`, slot, f => wallet.sendTransaction({ data: initFor(want[i]), ...f }));
           slot.address = r.contractAddress;
-          if (!(await ok(slot.address))) throw new Error("chunk " + i + " code mismatch after deploy");
+          /* public RPCs are load balanced: a node behind the one that mined the tx may not have the code yet */
+          let good = false; for (let a = 0; a < 15 && !good; a++) { good = await ok(slot.address); if (!good) await new Promise(r => setTimeout(r, 3000)); }
+          if (!good) throw new Error("chunk " + i + " code mismatch after deploy");
         }
         save();
       } else console.log(`  chunk ${i} ok ${slot.address}`);
@@ -129,7 +131,8 @@ async function main() {
       cslot.address = r.contractAddress;
     }
     save();
-    if (!(await contractOk())) throw new Error("contract check failed after deploy");
+    let cgood = false; for (let a = 0; a < 15 && !cgood; a++) { cgood = await contractOk(); if (!cgood) await new Promise(r => setTimeout(r, 3000)); }
+    if (!cgood) throw new Error("contract check failed after deploy");
   } else console.log("  BLACKBOX ok", cslot.address);
   const bb = new ethers.Contract(cslot.address, art.abi, wallet);
   if ((await bb.owner()).toLowerCase() !== me.toLowerCase()) throw new Error("deployer is not the contract owner");
