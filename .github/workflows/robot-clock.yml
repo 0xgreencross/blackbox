@@ -1,0 +1,43 @@
+name: BLACKBOX robot clock
+# GitHub cron is unreliable (it never fired here), so the robot keeps its own clock:
+# every robot run dispatches this; it sleeps until the next due time (landing deadline,
+# auction end) and dispatches the robot. Exits when nothing is pending. Read-only, no secrets.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: robot-clock
+  cancel-in-progress: true
+
+jobs:
+  wait:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - name: install deps
+        working-directory: robot
+        run: npm ci --no-audit --no-fund
+      - name: sleep until due, then wake the robot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          s=$(node robot/clock.mjs)
+          echo "$(date -u +%FT%TZ) next due in: $s"
+          [ "$s" = "none" ] && exit 0
+          if [ "$s" -gt 20400 ]; then
+            sleep 20400
+            gh workflow run robot-clock.yml --ref main -R "$REPO"
+            exit 0
+          fi
+          w=$(( s + 45 )); [ "$w" -lt 240 ] && w=240
+          sleep "$w"
+          gh workflow run robot.yml --ref main -R "$REPO"
+          echo "$(date -u +%FT%TZ) robot dispatched"
