@@ -1,0 +1,59 @@
+name: Hoodi rehearsal
+# Full deploy and lifecycle on Hoodi. Sepolia now prices code deposit at ~1,542 gas/byte, too high
+# for the full contract; Hoodi prices it like mainnet (~202). Fires when this file or .github/rehearsal/HOODI is pushed.
+on:
+  push:
+    paths: [".github/rehearsal/HOODI", ".github/workflows/hoodi-rehearsal.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hoodi-rehearsal
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      DEPLOYER_KEY: ${{ secrets.REGISTRAR_KEY }}
+      RPC_URL: https://ethereum-hoodi-rpc.publicnode.com
+      MAX_GWEI: "20"
+      DEPLOY_DIR: ${{ github.workspace }}/contract/deployments-hoodi
+    defaults:
+      run:
+        working-directory: contract
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - name: install
+        run: npm ci --no-audit --no-fund
+      - name: compile
+        run: npx hardhat compile
+      - name: deploy
+        env:
+          NETWORK: sepolia
+          SCENE_PATH: scene/blackbox_scene.js
+        run: mkdir -p "$DEPLOY_DIR" && node scripts/deploy.js --chunks --registrar self
+      - name: rehearse
+        run: node scripts/rehearse.js
+      - name: upload deployments
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hoodi-deployments
+          path: contract/deployments-hoodi/
+          if-no-files-found: ignore
+      - name: commit deployments
+        if: always()
+        working-directory: ${{ github.workspace }}
+        run: |
+          git config user.name "blackbox-robot"
+          git config user.email "robot@blackbox.invalid"
+          git add -f contract/deployments-hoodi/ || true
+          git diff --cached --quiet && exit 0
+          git commit -m "hoodi rehearsal [robot-receipt]"
+          git push || { git pull --rebase && git push; }
