@@ -34,7 +34,7 @@ async function main() {
   const me = wallet.address;
   const chainId = (await provider.getNetwork()).chainId;
   const local = chainId === 31337n;
-  if (!(chainId === C.CHAIN_IDS[network] || (local && network === "sepolia")))
+  if (!(chainId === C.CHAIN_IDS[network] || ((local || chainId === 560048n) && network === "sepolia")))
     throw new Error(`chainId ${chainId} does not match NETWORK=${network}`);
   const registrar = args.values.registrar === "self" ? me : ethers.getAddress(args.values.registrar);
 
