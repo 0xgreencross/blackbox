@@ -36,15 +36,6 @@ function persp(pos,look){ var fw=V.norm(V.sub(look,pos)), R=V.norm(V.cross(fw,[0
 function fit(cam,pts,box){ cam.s=1;cam.ox=0;cam.oy=0; var a=1e9,b=1e9,c=-1e9,d=-1e9;
   pts.forEach(function(p){ var q=cam.P(p); a=Math.min(a,q[0]);b=Math.min(b,q[1]);c=Math.max(c,q[0]);d=Math.max(d,q[1]); });
   var s=Math.min((box[2]-box[0])/(c-a),(box[3]-box[1])/(d-b)); cam.s=s; cam.ox=(box[0]+box[2])/2-s*(a+c)/2; cam.oy=(box[1]+box[3])/2-s*(b+d)/2; }
-function texTri(ctx,img,p0,p1,p2,t0,t1,t2){
-  var cx=(p0[0]+p1[0]+p2[0])/3, cy=(p0[1]+p1[1]+p2[1])/3; function ex(p){ var dx=p[0]-cx,dy=p[1]-cy,l=Math.hypot(dx,dy)||1; return [p[0]+dx/l*.6,p[1]+dy/l*.6]; }
-  var q0=ex(p0),q1=ex(p1),q2=ex(p2), du1=t1[0]-t0[0],dv1=t1[1]-t0[1],du2=t2[0]-t0[0],dv2=t2[1]-t0[1], det=du1*dv2-du2*dv1; if(Math.abs(det)<1e-9) return;
-  var x1=p1[0]-p0[0],y1=p1[1]-p0[1],x2=p2[0]-p0[0],y2=p2[1]-p0[1], a=(x1*dv2-x2*dv1)/det, b=(y1*dv2-y2*dv1)/det, c=(x2*du1-x1*du2)/det, d=(y2*du1-y1*du2)/det;
-  ctx.save(); ctx.beginPath(); ctx.moveTo(q0[0],q0[1]); ctx.lineTo(q1[0],q1[1]); ctx.lineTo(q2[0],q2[1]); ctx.closePath(); ctx.clip();
-  ctx.setTransform(a,b,c,d,p0[0]-a*t0[0]-c*t0[1],p0[1]-b*t0[0]-d*t0[1]); ctx.drawImage(img,0,0); ctx.restore(); }
-function poly(ctx,pts,col){ ctx.beginPath(); pts.forEach(function(p,i){ i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]); }); ctx.closePath(); ctx.fillStyle=col; ctx.fill(); }
-function texQuad(ctx,img,q,uv,lum){ poly(ctx,q,'#000'); ctx.globalAlpha=Math.max(0,Math.min(1,lum)); texTri(ctx,img,q[0],q[1],q[2],uv[0],uv[1],uv[2]); texTri(ctx,img,q[0],q[2],q[3],uv[0],uv[2],uv[3]); ctx.globalAlpha=1; }
-function wrapU(u){ return ((u%RES)+RES)%RES; }
 
 /* ---------- the scene: one curtain per record, standing on its own dithered reflection ---------- */
 function build(){
@@ -96,41 +87,67 @@ window.BBGO.then(function(E){
   /* display: integer upscale of the 240 raster, centred */
   var cv=document.createElement('canvas'), dx=cv.getContext('2d'); document.body.appendChild(cv);
   var off=document.createElement('canvas'); off.width=off.height=IW; var ox=off.getContext('2d');
-  var refl=document.createElement('canvas'); refl.width=refl.height=IW; var rx=refl.getContext('2d');
-  var veil=document.createElement('canvas'); veil.width=veil.height=IW; (function(){ var v=veil.getContext('2d'), im=v.createImageData(IW,IW); for(var y=0;y<IW;y++) for(var x=0;x<IW;x++) im.data[(y*IW+x)*4+3]=B4[(y&3)*4+(x&3)]<7?255:0; v.putImageData(im,0,0); })();
   var K=1, DW=IW;
   function size(){ var S=Math.min(innerWidth,innerHeight)||IW*2; K=Math.max(1,Math.floor(S/IW)); DW=IW*K; cv.width=cv.height=DW;
     cv.style.cssText='position:absolute;left:50%;top:50%;width:'+DW+'px;height:'+DW+'px;margin:-'+DW/2+'px 0 0 -'+DW/2+'px;image-rendering:pixelated;background:#000';
     dx.imageSmoothingEnabled=false; markKey=''; }
   var G=build(), marks=null, markKey='';
-  /* the scene is periodic over 288 frames (8 loops): each frame is composed once, then replayed */
-  var cache=[], cacheK=-1, wp=0;
+  /* the curtain and its reflection are rasterised once per shape into per-pixel samples (texture position, light,
+     coverage, painter order resolved); each frame only looks the loop up through them: no per-frame clipping or
+     transforms, so it runs the same on a phone as on a desktop */
+  var LK=-1, LC=null, LR=null, polys=[], TEX=null, cimg=ox.createImageData(IW,IW), rimg=ox.createImageData(IW,IW),
+    cc=document.createElement('canvas'), rc=document.createElement('canvas'); cc.width=cc.height=rc.width=rc.height=IW;
+  var ccx=cc.getContext('2d'), rcx=rc.getContext('2d');
+  function layer(kmax,mir){
+    var cam=G.cam, base=G.base, alt=G.alt, tt=G.tt, H=G.H, n=base.length-1, items=[], kend=(sealed&&!journey)?n:kmax, k, b, i;
+    for(k=0;k<kend&&k<n;k++){ var ghost=k>=kmax, uA=tt[k]*RES, uB=uA+(tt[k+1]-tt[k])*RES, a0=alt[k], a1=alt[k+1], sg=mir?-.85:1;
+      var tan=V.norm(V.sub(base[k+1],base[k])), nrm=V.norm(V.cross(tan,[0,1,0])), lum=.5+.5*Math.abs(V.dot(nrm,V.norm([.55,0,.35])));
+      for(b=0;b<6;b++){ var f0=b/6, f1=(b+1)/6;
+        var q=[[base[k][0],sg*H*a0*f0,base[k][2]],[base[k+1][0],sg*H*a1*f0,base[k+1][2]],[base[k+1][0],sg*H*a1*f1,base[k+1][2]],[base[k][0],sg*H*a0*f1,base[k][2]]].map(cam.P);
+        polys.push(q);
+        items.push({z:(q[0][2]+q[2][2])/2,q:q,uv:[[uA,RES*(1-f0*a0)],[uB,RES*(1-f0*a1)],[uB,RES*(1-f1*a1)],[uA,RES*(1-f1*a0)]],m:(mir?.40:lum)*Math.pow(f1,.7)*(ghost?.12:1)}); } }
+    items.sort(function(a,b){return a.z-b.z;});
+    var top=new Int32Array(IW*IW*4).fill(-1), TR=[];
+    items.forEach(function(it){ [[0,1,2],[0,2,3]].forEach(function(tr){
+      var A=it.q[tr[0]], B=it.q[tr[1]], C=it.q[tr[2]], ta=it.uv[tr[0]], tb=it.uv[tr[1]], tc=it.uv[tr[2]];
+      var det=(B[0]-A[0])*(C[1]-A[1])-(C[0]-A[0])*(B[1]-A[1]); if(Math.abs(det)<1e-9) return;
+      var code=TR.length; TR.push({A:A,B:B,C:C,det:det,ta:ta,tb:tb,tc:tc,m:it.m});
+      /* coverage uses the triangle grown 0.6 px from its centre, as the canvas clip did */
+      var gx=(A[0]+B[0]+C[0])/3, gy=(A[1]+B[1]+C[1])/3, ex=function(P){ var dx=P[0]-gx, dy=P[1]-gy, l=Math.hypot(dx,dy)||1; return [P[0]+dx/l*.6,P[1]+dy/l*.6]; };
+      A=ex(A); B=ex(B); C=ex(C); det=(B[0]-A[0])*(C[1]-A[1])-(C[0]-A[0])*(B[1]-A[1]);
+      var x0=Math.max(0,Math.floor(Math.min(A[0],B[0],C[0]))), x1=Math.min(IW-1,Math.ceil(Math.max(A[0],B[0],C[0]))), y0=Math.max(0,Math.floor(Math.min(A[1],B[1],C[1]))), y1=Math.min(IW-1,Math.ceil(Math.max(A[1],B[1],C[1])));
+      for(var y=y0;y<=y1;y++) for(var x=x0;x<=x1;x++) for(var s=0;s<4;s++){ var px=x+((s&1)?.75:.25), py=y+((s&2)?.75:.25);
+        var l1=((px-A[0])*(C[1]-A[1])-(C[0]-A[0])*(py-A[1]))/det, l2=((B[0]-A[0])*(py-A[1])-(px-A[0])*(B[1]-A[1]))/det;
+        if(l1>=0&&l2>=0&&l1+l2<=1) top[(y*IW+x)*4+s]=code; } }); });
+    var idx=[], U=[], Vv=[], M=[], Al=[];
+    for(i=0;i<IW*IW;i++){ var c=0, best=-1; for(var s2=0;s2<4;s2++){ var t=top[i*4+s2]; if(t>=0){ c++; if(t>best) best=t; } } if(!c) continue;
+      var x=i%IW, y=(i/IW)|0; if(mir&&B4[(y&3)*4+(x&3)]<7) continue;
+      var T=TR[best], cx=x+.5, cy=y+.5, m1=((cx-T.A[0])*(T.C[1]-T.A[1])-(T.C[0]-T.A[0])*(cy-T.A[1]))/T.det, m2=((T.B[0]-T.A[0])*(cy-T.A[1])-(cx-T.A[0])*(T.B[1]-T.A[1]))/T.det;
+      idx.push(i); U.push(T.ta[0]+m1*(T.tb[0]-T.ta[0])+m2*(T.tc[0]-T.ta[0])); Vv.push(T.ta[1]+m1*(T.tb[1]-T.ta[1])+m2*(T.tc[1]-T.ta[1])); M.push(T.m); Al.push(Math.round(c*63.75)); }
+    return {idx:new Int32Array(idx),u:new Float32Array(U),v:new Float32Array(Vv),m:new Float32Array(M),a:new Uint8Array(Al)}; }
+  /* bilinear lookup of the loop, periodic across, clamped down, as the canvas sampled it */
+  function paint(L,img,tex,shift){ var d=img.data, id=L.idx, U=L.u, VV=L.v, M=L.m, A=L.a, n=id.length, R=RES, R1=RES-1;
+    for(var i=0;i<n;i++){ var x=U[i]-shift-.5, y=VV[i]-.5; x-=Math.floor(x/R)*R; var x0=x|0, fx=x-x0, x1=x0+1; if(x1>=R) x1=0; if(x0>=R) x0=0;
+      if(y<0) y=0; else if(y>R1) y=R1; var y0=y|0, fy=y-y0, y1=y0<R1?y0+1:y0;
+      var p00=(y0*R+x0)<<2, p10=(y0*R+x1)<<2, p01=(y1*R+x0)<<2, p11=(y1*R+x1)<<2, w00=(1-fx)*(1-fy), w10=fx*(1-fy), w01=(1-fx)*fy, w11=fx*fy, m=M[i], o=id[i]<<2;
+      d[o]=(tex[p00]*w00+tex[p10]*w10+tex[p01]*w01+tex[p11]*w11)*m; d[o+1]=(tex[p00+1]*w00+tex[p10+1]*w10+tex[p01+1]*w01+tex[p11+1]*w11)*m;
+      d[o+2]=(tex[p00+2]*w00+tex[p10+2]*w10+tex[p01+2]*w01+tex[p11+2]*w11)*m; d[o+3]=A[i]; } }
   addEventListener('resize',size); size();
   function silk(t,x,y,px,col,al){ dx.font=px+"px Silkscreen, monospace"; dx.fillStyle=col; dx.textBaseline='top'; dx.textAlign=al||'left'; dx.fillText(t,x,y); }
   function measure(t){ ox.font="8px Silkscreen, monospace"; return Math.ceil(ox.measureText(t).width); }
 
-  function frame(T,g,warm){
+  function frame(g){
     var travel=(g%(N*4))/(N*4), hue=g/(N*8)*360, shift=travel*RES, now=(BB.now||0)+(Date.now()-T0)/1000;
     var prog=sealed&&!journey&&BB.deadline>BB.open?Math.max(.02,Math.min(1,(now-BB.open)/(BB.deadline-BB.open))):1;
-    var cam=G.cam, base=G.base, alt=G.alt, tt=G.tt, H=G.H, n=base.length-1, kmax=Math.ceil(prog*n), polys=[];
-    if(kmax!==cacheK){ cache=[]; cacheK=kmax; wp=(g+1)%(N*8); }
-    if(cache[g]){ if(!warm){ dx.drawImage(cache[g],0,0,DW,DW); overlay(); } return; }
+    var cam=G.cam, base=G.base, n=base.length-1, kmax=Math.ceil(prog*n), tex=TEX[g%N];
+    if(kmax!==LK){ LK=kmax; polys=[]; LR=layer(kmax,true); LC=layer(kmax,false); cimg=ox.createImageData(IW,IW); rimg=ox.createImageData(IW,IW); markKey=''; }
     ox.setTransform(1,0,0,1,0,0); ox.fillStyle='#000'; ox.fillRect(0,0,IW,IW);
-    function quads(c,mir){ const items=[];
-      const kend=(sealed&&!journey)?n:kmax;
-      for(let k=0;k<kend&&k<n;k++){ const ghost=k>=kmax; const u0=wrapU(tt[k]*RES-shift), u1=u0+(tt[k+1]-tt[k])*RES, a0=alt[k], a1=alt[k+1], sg=mir?-.85:1;
-        const tan=V.norm(V.sub(base[k+1],base[k])), nrm=V.norm(V.cross(tan,[0,1,0])), lum=.5+.5*Math.abs(V.dot(nrm,V.norm([.55,0,.35])));
-        for(let b=0;b<6;b++){ (function(f0,f1){
-          function P(i,a,f){ return [base[i][0],sg*H*a*f,base[i][2]]; }
-          var q=[P(k,a0,f0),P(k+1,a1,f0),P(k+1,a1,f1),P(k,a0,f1)].map(cam.P), z=(q[0][2]+q[2][2])/2, fade=Math.pow(f1,.7); polys.push(q);
-          items.push([z,function(){ texQuad(c,T,q,[[u0,RES*(1-f0*a0)],[u1,RES*(1-f0*a1)],[u1,RES*(1-f1*a1)],[u0,RES*(1-f1*a0)]],(mir?.40:lum)*fade*(ghost?.12:1)); }]); })(b/6,(b+1)/6); } }
-      items.sort(function(a,b){return a[0]-b[0];}).forEach(function(it){ it[1](); }); }
-    rx.setTransform(1,0,0,1,0,0); rx.clearRect(0,0,IW,IW); quads(rx,true); rx.globalCompositeOperation='destination-out'; rx.drawImage(veil,0,0); rx.globalCompositeOperation='source-over'; ox.drawImage(refl,0,0);
+    paint(LR,rimg,tex,shift); rcx.putImageData(rimg,0,0); ox.drawImage(rc,0,0);
     /* the floor: a graticule whose dim hue drifts one turn every eight loops */
     for(var i=-8;i<=8;i++){ var zz=i*.3, a=cam.P([-2.4,0,zz]), b=cam.P([2.4,0,zz]), c=cam.P([zz,0,-2.4]), d=cam.P([zz,0,2.4]);
       ox.strokeStyle='rgb('+hslRgb((i+8)/16*300+hue,.7,.10)+')'; ox.lineWidth=1; ox.beginPath(); ox.moveTo(a[0],a[1]); ox.lineTo(b[0],b[1]); ox.stroke();
       ox.strokeStyle='rgb('+hslRgb((i+8)/16*300+60+hue,.7,.10)+')'; ox.beginPath(); ox.moveTo(c[0],c[1]); ox.lineTo(d[0],d[1]); ox.stroke(); }
-    quads(ox,false);
+    paint(LC,cimg,tex,shift); ccx.putImageData(cimg,0,0); ox.drawImage(cc,0,0);
     var key=kmax+'|'+K; if(key!==markKey){ markKey=key; var m=maskData(polys), ends=[];
       G.legs.forEach(function(l,li){ var i0=li?G.legs[li-1].i1:0, pa=cam.P(base[i0]), pb=cam.P(base[l.i1]), mid=cam.P(base[Math.round((i0+l.i1)/2)]);
         function out(p){ var dx_=p[0]-mid[0], dy_=p[1]-mid[1], ll=Math.hypot(dx_,dy_)||1; return [dx_/ll,dy_/ll]; }
@@ -139,9 +156,8 @@ window.BBGO.then(function(E){
       if(sealed&&prog<1){ var pp=cam.P(base[Math.min(n,kmax)]); ends.push({p:pp,out:[0,1],text:'',dot:true}); }
       marks=placeMarks(m,ends,measure); }
     ox.fillStyle='#fff'; marks.dots.forEach(function(d){ ox.fillRect(Math.round(d[0])-1,Math.round(d[1])-1,3,3); });
-    var cc=document.createElement('canvas'); cc.width=cc.height=IW; cc.getContext('2d').drawImage(off,0,0); cache[g]=cc;
-    if(!warm){ dx.drawImage(off,0,0,DW,DW); overlay(); } }
-  /* labels and legend are drawn at display resolution over the cached raster */
+    dx.drawImage(off,0,0,DW,DW); overlay(); }
+  /* labels and legend are drawn at display resolution over the raster */
   function overlay(){
     marks.labs.forEach(function(l){ silk(l[2],l[0]*K,l[1]*K,8*K,'#fff'); });
     /* the legend: label and hash while sealed; the record once landed */
@@ -151,17 +167,15 @@ window.BBGO.then(function(E){
     else { silk((BB.label||'')+'  '+REC.dep+' > '+REC.arr+'  '+String(BB.index).padStart(2,'0')+'/'+String(BB.minted).padStart(2,'0'),lx,ly,u,'#fff');
       silk(REC.min+' MIN  '+REC.date+'  SEAT '+REC.seat,lx,ly+7*K,u,BONE[4]); silk((REC.km?REC.km+' KM  ':'')+REC.type,lx,ly+14*K,u,BONE[4]); } }
 
-  var T0=Date.now(), tiles=null;
+  var T0=Date.now();
   wk.onmessage=function(e){ var m=e.data; if(m.t==='meta'){ pal=m.pal; return; } if(m.t!=='pv') return;
     if(!frames[m.i]){ frames[m.i]=new Uint8Array(m.buf); got++; }
     if(got<N){ var nx=0; while(frames[nx]) nx++; wk.postMessage({t:'job',job:Object.assign({},J,{__i:nx}),step:true}); return; }
-    wk.terminate(); tiles=frames.map(function(buf){ var c=document.createElement('canvas'); c.width=RES*2; c.height=RES; var x=c.getContext('2d'), im=x.createImageData(RES,RES), d=im.data;
-      for(var i=0,p=0;i<RES*RES;i++,p+=4){ var k=pal[buf[i]]||pal[0]; d[p]=k[0];d[p+1]=k[1];d[p+2]=k[2];d[p+3]=255; } x.putImageData(im,0,0); x.putImageData(im,RES,0); return c; });
+    wk.terminate(); TEX=frames.map(function(buf){ var d=new Uint8Array(RES*RES*4);
+      for(var i=0,p=0;i<RES*RES;i++,p+=4){ var k=pal[buf[i]]||pal[0]; d[p]=k[0];d[p+1]=k[1];d[p+2]=k[2];d[p+3]=255; } return d; });
     T0=Date.now(); requestAnimationFrame(tick); };
   wk.postMessage({t:'job',job:Object.assign({},J,{__i:0}),step:true});
-  /* each display refresh: show the frame due now, then spend what is left of ~10 ms composing frames ahead */
-  var lastG=-1; function tick(){ requestAnimationFrame(tick); var t1=performance.now(), g=Math.floor((Date.now()-T0)/40)%(N*8); if(g!==lastG){ lastG=g; frame(tiles[g%N],g); }
-    for(var s=0;s<N*8&&performance.now()-t1<10;s++){ if(!cache[wp]) frame(tiles[wp%N],wp,true); wp=(wp+1)%(N*8); } }
-  try{ var ff=new FontFace('Silkscreen','url(data:font/ttf;base64,'+String(window.BBF||'').trim()+')'); ff.load().then(function(f){ document.fonts.add(f); markKey=''; cache=[]; wp=0; }); }catch(e){}
+  var lastG=-1; function tick(){ requestAnimationFrame(tick); var g=Math.floor((Date.now()-T0)/40)%(N*8); if(g===lastG) return; lastG=g; frame(g); }
+  try{ var ff=new FontFace('Silkscreen','url(data:font/ttf;base64,'+String(window.BBF||'').trim()+')'); ff.load().then(function(f){ document.fonts.add(f); markKey=''; }); }catch(e){}
 });
 })();
