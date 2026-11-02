@@ -1,0 +1,32 @@
+{
+  "network": "sepolia",
+  "chainId": "11155111",
+  "steps": {},
+  "deployer": "0x02A8018D9312c8b89269Cc3761dC95e7BEC21ab8",
+  "registrar": "0x02A8018D9312c8b89269Cc3761dC95e7BEC21ab8",
+  "chunks": [
+    {
+      "tx": "0x566ab34a39a4facac3234aae94c83554b22b8a5a952986d638b2f7cc87361500",
+      "block": 12047787,
+      "gasUsed": "37324925",
+      "address": "0xE9827b37d398F18308F06888FF9a5F58AD8734bf"
+    },
+    {
+      "tx": "0x81fed49daad87e565e76858b564ef65e7be131140fd70c1de9bc12bca32419b9",
+      "block": 12047788,
+      "gasUsed": "37324925",
+      "address": "0x47659B38BA8136f3bb9EF303F97aebabd63F590F"
+    },
+    {
+      "tx": "0x9b4db6217296ef6b9196e1b4555fbde722d8291a617b4c3ec7f70a7941563cec",
+      "block": 12047789,
+      "gasUsed": "37324925",
+      "address": "0xFB46E7Ca7f1e0936F9C1e66fE16f09A152D7f099"
+    },
+    {
+      "tx": "0x5f1d6014c9334db771bc296948a89c6ebf1811e981707b271144d95be20579d0"
+    }
+  ],
+  "scene": [],
+  "font": []
+}
