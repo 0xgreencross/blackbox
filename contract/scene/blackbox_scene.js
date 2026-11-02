@@ -104,7 +104,7 @@ window.BBGO.then(function(E){
     dx.imageSmoothingEnabled=false; markKey=''; }
   var G=build(), marks=null, markKey='';
   /* the scene is periodic over 288 frames (8 loops): each frame is composed once, then replayed */
-  var cache=[], cacheK=-1;
+  var cache=[], cacheK=-1, wp=0;
   addEventListener('resize',size); size();
   function silk(t,x,y,px,col,al){ dx.font=px+"px Silkscreen, monospace"; dx.fillStyle=col; dx.textBaseline='top'; dx.textAlign=al||'left'; dx.fillText(t,x,y); }
   function measure(t){ ox.font="8px Silkscreen, monospace"; return Math.ceil(ox.measureText(t).width); }
@@ -113,7 +113,7 @@ window.BBGO.then(function(E){
     var travel=(g%(N*4))/(N*4), hue=g/(N*8)*360, shift=travel*RES, now=(BB.now||0)+(Date.now()-T0)/1000;
     var prog=sealed&&!journey&&BB.deadline>BB.open?Math.max(.02,Math.min(1,(now-BB.open)/(BB.deadline-BB.open))):1;
     var cam=G.cam, base=G.base, alt=G.alt, tt=G.tt, H=G.H, n=base.length-1, kmax=Math.ceil(prog*n), polys=[];
-    if(kmax!==cacheK){ cache=[]; cacheK=kmax; }
+    if(kmax!==cacheK){ cache=[]; cacheK=kmax; wp=(g+1)%(N*8); }
     if(cache[g]){ if(!warm){ dx.drawImage(cache[g],0,0,DW,DW); overlay(); } return; }
     ox.setTransform(1,0,0,1,0,0); ox.fillStyle='#000'; ox.fillRect(0,0,IW,IW);
     function quads(c,mir){ const items=[];
@@ -157,11 +157,11 @@ window.BBGO.then(function(E){
     if(got<N){ var nx=0; while(frames[nx]) nx++; wk.postMessage({t:'job',job:Object.assign({},J,{__i:nx}),step:true}); return; }
     wk.terminate(); tiles=frames.map(function(buf){ var c=document.createElement('canvas'); c.width=RES*2; c.height=RES; var x=c.getContext('2d'), im=x.createImageData(RES,RES), d=im.data;
       for(var i=0,p=0;i<RES*RES;i++,p+=4){ var k=pal[buf[i]]||pal[0]; d[p]=k[0];d[p+1]=k[1];d[p+2]=k[2];d[p+3]=255; } x.putImageData(im,0,0); x.putImageData(im,RES,0); return c; });
-    warm(0); };
-  function warm(i){ var t1=performance.now(); if(i===0){ frame(tiles[0],0); i=1; } while(i<N*8&&performance.now()-t1<24){ frame(tiles[i%N],i,true); i++; }
-    if(i<N*8){ setTimeout(function(){ warm(i); },0); return; } T0=Date.now(); requestAnimationFrame(tick); }
+    T0=Date.now(); requestAnimationFrame(tick); };
   wk.postMessage({t:'job',job:Object.assign({},J,{__i:0}),step:true});
-  var lastG=-1; function tick(){ requestAnimationFrame(tick); var g=Math.floor((Date.now()-T0)/40)%(N*8); if(g===lastG) return; lastG=g; frame(tiles[g%N],g); }
-  try{ var ff=new FontFace('Silkscreen','url(data:font/ttf;base64,'+String(window.BBF||'').trim()+')'); ff.load().then(function(f){ document.fonts.add(f); markKey=''; cache=[]; }); }catch(e){}
+  /* each display refresh: show the frame due now, then spend what is left of ~10 ms composing frames ahead */
+  var lastG=-1; function tick(){ requestAnimationFrame(tick); var t1=performance.now(), g=Math.floor((Date.now()-T0)/40)%(N*8); if(g!==lastG){ lastG=g; frame(tiles[g%N],g); }
+    for(var s=0;s<N*8&&performance.now()-t1<10;s++){ if(!cache[wp]) frame(tiles[wp%N],wp,true); wp=(wp+1)%(N*8); } }
+  try{ var ff=new FontFace('Silkscreen','url(data:font/ttf;base64,'+String(window.BBF||'').trim()+')'); ff.load().then(function(f){ document.fonts.add(f); markKey=''; cache=[]; wp=0; }); }catch(e){}
 });
 })();
