@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BLACKBOX DEPLOY CONSOLE</title>
+<style>
+html,body{margin:0;background:#000;color:#a0a0a0;font:13px/1.6 ui-monospace,Menlo,monospace}
+body{padding:20px;max-width:860px}
+h1{color:#e8ff2e;font-size:15px;letter-spacing:.08em;margin:0 0 4px}
+.k{color:#55555e}.ok{color:#39ff14}.bad{color:#ff1f9c}.w{color:#fff}
+button{background:#000;color:#19f0ff;border:1px solid #19f0ff;padding:6px 14px;font:inherit;cursor:pointer;margin:4px 6px 4px 0}
+button:disabled{color:#333;border-color:#333;cursor:default}
+input,select,textarea{background:#000;color:#fff;border:1px solid #333;font:inherit;padding:4px 6px}
+.step{padding:10px 0;border-top:1px solid #161619}
+#log{white-space:pre-wrap;color:#7a7a86;margin-top:18px;font-size:12px}
+a{color:#19f0ff}
+</style></head><body>
+<h1>DITHERVOID // BLACKBOX :: DEPLOY CONSOLE</h1>
+<div class="k">Nothing is signed without your click in MetaMask. Every step reads the chain first, so the page can be reloaded and resumed at any point.</div>
+<div class="step"><b class="w">0 :: NETWORK AND WALLET</b><br>
+NETWORK <select id="net"><option value="mainnet">MAINNET</option><option value="sepolia">SEPOLIA</option></select>
+<button id="connect">CONNECT METAMASK</button> <span id="who"></span><br>
+REGISTRAR (robot ops wallet) <input id="registrar" size="44" value="0x02A8018D9312c8b89269Cc3761dC95e7BEC21ab8"><br>
+<span id="sepchunks" style="display:none">SEPOLIA CHUNK ADDRESSES (14, comma separated)<br><textarea id="chunksIn" rows="3" cols="90"></textarea><br></span>
+EXISTING CONTRACT (only to resume) <input id="existing" size="44" placeholder="leave empty for a fresh deploy"></div>
+<div class="step"><b class="w">1 :: ENGINE CHECK</b> <span class="k">read the 14 GLASS chunks and verify the page fingerprint</span><br><button id="s1" disabled>CHECK ENGINE</button> <span id="r1"></span></div>
+<div class="step"><b class="w">2 :: DEPLOY CONTRACT</b> <span class="k">owner = the connected wallet; fees and royalties go to the treasury constant in the contract</span><br><button id="s2" disabled>DEPLOY</button> <span id="r2"></span></div>
+<div class="step"><b class="w">3 :: UPLOAD SCENE</b> <span class="k">2 transactions</span><br><button id="s3" disabled>UPLOAD NEXT SCENE PART</button> <span id="r3"></span></div>
+<div class="step"><b class="w">4 :: UPLOAD FONT</b> <span class="k">4 transactions</span><br><button id="s4" disabled>UPLOAD NEXT FONT PART</button> <span id="r4"></span></div>
+<div class="step"><b class="w">5 :: VERIFY ON CHAIN</b> <span class="k">scene and font read back and compared byte for byte by hash</span><br><button id="s5" disabled>VERIFY</button> <span id="r5"></span></div>
+<div class="step"><b class="w">6 :: LOCK SCENE</b> <span class="bad">PERMANENT. After this the art can never change, and filing becomes possible.</span><br>
+<label><input type="checkbox" id="perm"> I CONFIRM THE ART IS FINAL AND THE LOCK IS PERMANENT</label><br><button id="s6" disabled>LOCK</button> <span id="r6"></span></div>
+<div id="log"></div>
+<script>/*__ETHERS__*/</script>
+<script>
+const P=/*__PAYLOAD__*/;
+const GLASS="0xF125024a394C0518D85D7a416cc9df96177107f4", PAGE="0x4b3ffe1cab65c035925ab5d4062e182ce781cbf90d045d8b057950493666f72f";
+const NET={mainnet:{id:1n,ex:"https://etherscan.io"},sepolia:{id:11155111n,ex:"https://sepolia.etherscan.io"},local:{id:31337n,ex:"#"}};
+if(new URLSearchParams(location.search).has("local")){ const o=document.createElement("option"); o.value="local"; o.textContent="LOCAL TEST"; document.getElementById("net").appendChild(o); }
+const $=id=>document.getElementById(id), log=(m,c)=>{ const t=new Date().toISOString().slice(11,19); $("log").innerHTML=`<span class="${c||""}">${t} ${m}</span>\n`+$("log").innerHTML; };
+let provider, signer, me, chunks=null, bb=null; const net=()=>$("net").value, ex=()=>NET[net()].ex;
+const key=()=>"bbdeploy:"+net();
+const save=o=>{ try{ localStorage.setItem(key(),JSON.stringify(Object.assign(load(),o))); }catch(e){} }, load=()=>{ try{ return JSON.parse(localStorage.getItem(key())||"{}"); }catch(e){ return {}; } };
+const link=h=>`<a href="${ex()}/tx/${h}" target="_blank">${h.slice(0,12)}..</a>`;
+async function sha256(hex){ const b=ethers.getBytes(hex); const d=await crypto.subtle.digest("SHA-256",b); return [...new Uint8Array(d)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
+$("net").onchange=()=>{ $("sepchunks").style.display=net()!=="mainnet"?"":"none"; };
+$("connect").onclick=async()=>{
+  if(!window.ethereum){ log("No wallet found in this browser.","bad"); return; }
+  provider=new ethers.BrowserProvider(window.ethereum); await provider.send("eth_requestAccounts",[]);
+  const want=NET[net()].id, cid=(await provider.getNetwork()).chainId;
+  if(cid!==want){ try{ await provider.send("wallet_switchEthereumChain",[{chainId:"0x"+want.toString(16)}]); provider=new ethers.BrowserProvider(window.ethereum); }catch(e){ log("Switch the wallet to "+net().toUpperCase()+" and reconnect.","bad"); return; } }
+  signer=await provider.getSigner(); me=await signer.getAddress(); let ens=null; try{ ens=await provider.lookupAddress(me); }catch(e){}
+  const bal=ethers.formatEther(await provider.getBalance(me));
+  $("who").innerHTML=`<span class="w">${ens||""} ${me}</span> <span class="k">${bal} ETH on ${net().toUpperCase()}</span>`;
+  log("connected "+(ens||me)); $("s1").disabled=false;
+  const st=load(); const ad=$("existing").value.trim()||st.contract; if(ad){ $("existing").value=ad; } };
+$("s1").onclick=async()=>{
+  try{ if(net()==="mainnet"){ const g=new ethers.Contract(GLASS,["function chunks() view returns (address[])"],provider); chunks=[...await g.chunks()]; }
+    else chunks=$("chunksIn").value.split(",").map(s=>ethers.getAddress(s.trim()));
+    if(chunks.length!==14) throw new Error("expected 14 chunks, got "+chunks.length);
+    let acc=ethers.ZeroHash; for(const c of chunks){ const code=await provider.getCode(c); if(code.length<=4) throw new Error("chunk "+c+" has no code"); acc=ethers.keccak256(ethers.concat([acc,ethers.keccak256(code)])); }
+    if(acc!==PAGE) throw new Error("fingerprint mismatch "+acc);
+    $("r1").innerHTML='<span class="ok">ENGINE OK, fingerprint matches</span>'; log("engine fingerprint ok"); $("s2").disabled=false; await refresh(); }
+  catch(e){ $("r1").innerHTML='<span class="bad">'+e.message+'</span>'; log(e.message,"bad"); } };
+async function attach(addr){ bb=new ethers.Contract(addr,P.abi,signer); save({contract:addr}); $("existing").value=addr;
+  $("r2").innerHTML=`<span class="ok">CONTRACT</span> <a href="${ex()}/address/${addr}" target="_blank">${addr}</a>`; }
+async function partsDone(fn,list){ const have=await bb[fn](); const n=(have.length-2)/2; let sum=0, k=0; for(const p of list){ if(sum+(p.length-2)/2<=n){ sum+=(p.length-2)/2; k++; } else break; } return {k, bytes:n, ok:sum===n}; }
+async function refresh(){
+  const ad=$("existing").value.trim(); if(!ad) return;
+  if((await provider.getCode(ad)).length<=4){ log("no contract at "+ad+" yet","bad"); return; }
+  await attach(ad); $("s2").disabled=true;
+  const owner=await bb.owner(), locked=await bb.sceneLocked(), reg=await bb.registrar();
+  log("owner "+owner+" registrar "+reg+" locked "+locked);
+  const s=await partsDone("scene",P.scene), f=await partsDone("font",P.font);
+  $("r3").innerHTML=`${s.k}/${P.scene.length} parts`; $("r4").innerHTML=`${f.k}/${P.font.length} parts`;
+  $("s3").disabled=locked||s.k>=P.scene.length; $("s4").disabled=locked||f.k>=P.font.length||s.k<P.scene.length;
+  $("s5").disabled=!(s.k===P.scene.length&&f.k===P.font.length);
+  if(locked){ $("r6").innerHTML='<span class="ok">LOCKED</span>'; $("s6").disabled=true; } }
+$("s2").onclick=async()=>{
+  try{ const reg=ethers.getAddress($("registrar").value.trim()); const F=new ethers.ContractFactory(P.abi,P.bytecode,signer);
+    log("deploying: confirm in MetaMask"); const c=await F.deploy(chunks,reg); const tx=c.deploymentTransaction(); save({deployTx:tx.hash});
+    $("r2").innerHTML="pending "+link(tx.hash); await c.waitForDeployment(); const addr=await c.getAddress(); log("deployed "+addr,"ok"); await attach(addr); await refresh(); }
+  catch(e){ log(e.shortMessage||e.message,"bad"); } };
+async function upload(kind,list,fnAdd,el){
+  try{ const d=await partsDone(kind,list); if(!d.ok) throw new Error(kind+" on chain is not a clean prefix of the expected parts; stop and ask"); if(d.k>=list.length){ await refresh(); return; }
+    log(`${kind} part ${d.k+1}/${list.length}: confirm in MetaMask`); const tx=await bb[fnAdd](list[d.k]); $(el).innerHTML="pending "+link(tx.hash); await tx.wait(); log(`${kind} part ${d.k+1} done `+tx.hash,"ok"); await refresh(); }
+  catch(e){ log(e.shortMessage||e.message,"bad"); } }
+$("s3").onclick=()=>upload("scene",P.scene,"addScene","r3");
+$("s4").onclick=()=>upload("font",P.font,"addFont","r4");
+$("s5").onclick=async()=>{ const a=await sha256(await bb.scene()), b=await sha256(await bb.font());
+  const ok=a===P.sceneSha&&b===P.fontSha; $("r5").innerHTML=ok?'<span class="ok">SCENE AND FONT MATCH</span>':'<span class="bad">MISMATCH</span>'; log("verify "+(ok?"ok":"MISMATCH"),ok?"ok":"bad"); $("s6").disabled=!ok||!$("perm").checked; window.__verified=ok; };
+$("perm").onchange=()=>{ $("s6").disabled=!(window.__verified&&$("perm").checked); };
+$("s6").onclick=async()=>{ if(!confirm("LOCK THE SCENE PERMANENTLY?")) return;
+  try{ const tx=await bb.lockScene(); $("r6").innerHTML="pending "+link(tx.hash); await tx.wait(); log("scene locked "+tx.hash,"ok"); await refresh(); }catch(e){ log(e.shortMessage||e.message,"bad"); } };
+</script></body></html>

@@ -1,6 +1,9 @@
 name: Sepolia rehearsal
-# Manual only. Deploys chunk copies and BLACKBOX on Sepolia and runs the full lifecycle.
+# Deploys chunk copies and BLACKBOX on Sepolia and runs the full lifecycle.
+# Runs manually, or when .github/rehearsal/GO is pushed (the session's token cannot dispatch).
 on:
+  push:
+    paths: [".github/rehearsal/GO"]
   workflow_dispatch:
     inputs:
       step:
@@ -36,13 +39,13 @@ jobs:
       - name: compile
         run: npx hardhat compile
       - name: deploy
-        if: ${{ inputs.step == 'deploy' || inputs.step == 'both' }}
+        if: ${{ github.event_name == 'push' || inputs.step == 'deploy' || inputs.step == 'both' }}
         env:
           NETWORK: sepolia
-          SCENE_PATH: scene/rehearsal_scene.js
+          SCENE_PATH: scene/blackbox_scene.js
         run: node scripts/deploy.js --chunks --registrar self
       - name: rehearse
-        if: ${{ inputs.step == 'rehearse' || inputs.step == 'both' }}
+        if: ${{ github.event_name == 'push' || inputs.step == 'rehearse' || inputs.step == 'both' }}
         run: node scripts/rehearse.js
       - name: upload deployments
         if: always()
