@@ -76,12 +76,21 @@ function placeMarks(m,ends,measure){ var taken=[], dots=[], labs=[];
   return {dots:dots,labs:labs}; }
 
 /* ---------- run ---------- */
+/* lift each loop to full brightness: scale the palette so the 90th percentile of lit pixels reaches 250, then gamma .7 */
+function brighten(pal,frames){ var n=pal.length, cnt=new Float64Array(n), V=new Float64Array(n), j, i;
+  frames.forEach(function(b){ for(i=0;i<b.length;i++) cnt[b[i]]++; });
+  for(j=0;j<n;j++){ var k=pal[j]; V[j]=k?Math.max(k[0],k[1],k[2]):0; }
+  var ids=[], tot=0; for(j=0;j<n;j++) if(V[j]>12&&cnt[j]){ ids.push(j); tot+=cnt[j]; }
+  ids.sort(function(a,b){ return V[a]-V[b]; }); var acc=0, p=255; for(i=0;i<ids.length;i++){ acc+=cnt[ids[i]]; if(acc>=tot*.9){ p=V[ids[i]]; break; } }
+  var g=Math.max(1,Math.min(4,250/Math.max(1,p)));
+  return pal.map(function(k){ return k?[0,1,2].map(function(c){ return Math.round(255*Math.pow(Math.min(1,k[c]*g/255),.7)); }):k; }); }
 window.BBGO.then(function(E){
   /* the engine's own helpers on the main thread, for the job roll (palette, mode, rng) */
   var s=document.createElement('script');
   s.text='var W=180,H=180,FW=360,PVSW=180,PVVG=56,OUTD=0,TAU=6.283185307179586;\n'+E.V3_CORE+'\n'+E.V3_CORE2+'\nwindow.__BBX={mulberry32:mulberry32,MODES:MODES,SCHEMES:SCHEMES,SCHEME_KEYS:SCHEME_KEYS,genesisScheme:genesisScheme,tisScheme:tisScheme};';
   document.head.appendChild(s); var X=window.__BBX, CARD_CH=E.CARD_CH;
-  function job(seed,isSealed){ var rng=X.mulberry32((seed^0xC41E)>>>0), mode=X.MODES[(rng()*X.MODES.length)|0], si=(rng()*(X.SCHEME_KEYS.length+2))|0;
+  function job(seed,isSealed,k){ var rng=X.mulberry32((seed^0xC41E)>>>0), mode=X.MODES[(rng()*X.MODES.length)|0], si=(rng()*(X.SCHEME_KEYS.length+2))|0;
+    if(k){ rng=X.mulberry32((seed^0xC41E^Math.imul(k,0x9E3779B1))>>>0); mode=X.MODES[(rng()*X.MODES.length)|0]; rng(); }
     var scheme= si<X.SCHEME_KEYS.length?X.SCHEMES[X.SCHEME_KEYS[si]]:(si===X.SCHEME_KEYS.length?X.genesisScheme(seed):X.tisScheme(seed));
     var corr=20+((rng()*75)|0), FAV={embers:1,bloom:1,panes:1,melt:1,ghost:1,invert:1,lungs:1,runes:1,meta:1,entropy:1,chimera:1,hilb:1,tunnel:1,chrono:1}, PILL={chroma:1,tracking:1,pixelsort:1,grain:1,blocks:1,scanlines:1,echo:1}, fx={};
     CARD_CH.forEach(function(k){ fx[k]=PILL[k]?rng()<.55:FAV[k]?rng()<.30:rng()<.10; }); fx.kaleido=false; fx.invert=false; fx.chimera=false;
@@ -91,7 +100,10 @@ window.BBGO.then(function(E){
     return {seed:seed,mode:mode,voidamt:voidamt,locality:locality,chromacap:chromacap,scheme:{stops:scheme.stops,glitch:scheme.glitch},corr:corr,N:N,fx:fx,
       ov:{maskType:0,maskStyle:0,cx:16,cy:16,size:16,n:0,form:0},epoch:0,ver:6,wb:{fam:null,prim:null,cam:null,mod:null,gain:{}},gr:null}; }
   var src='"use strict";const W='+RES+',H='+RES+',FW=360,PVSW='+Math.max(160,Math.min(448,RES))+',PVVG='+Math.max(56,Math.min(88,Math.round(88*Math.min(1,RES/448))))+',OUTD=0;const TAU=6.283185307179586;\n'+E.V3_CORE+'\n'+E.V3_CORE2+'\n'+E.V3_DRIVER;
-  var wk=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'}))), J=job(BB.seed>>>0,sealed), frames=new Array(N), got=0, pal=null;
+  var wk=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'}))), J=null, frames=new Array(N), got=0, pal=null, PK=0, KBEST=0, LBEST=-1, probing=true;
+  /* a loop must fill its curtain: probe frame 0 of up to 8 rolls (same scheme) and keep the first that lights at least 55% of the field */
+  function litOf(b,p){ var n=0; for(var i=0;i<b.length;i++){ var c=p[b[i]]; if(c&&Math.max(c[0],c[1],c[2])>40) n++; } return n/b.length; }
+  function start(k,probe){ PK=k; probing=probe; J=job(BB.seed>>>0,sealed,k); frames=new Array(N); got=0; pal=null; wk.postMessage({t:'job',job:Object.assign({},J,{__i:0}),step:true}); }
 
   /* display: integer upscale of the 240 raster, centred */
   var cv=document.createElement('canvas'), dx=cv.getContext('2d'); document.body.appendChild(cv);
@@ -115,10 +127,10 @@ window.BBGO.then(function(E){
     function quads(c,mir){ const items=[];
       const kend=(sealed&&!journey)?n:kmax;
       for(let k=0;k<kend&&k<n;k++){ const ghost=k>=kmax; const u0=wrapU(tt[k]*RES-shift), u1=u0+(tt[k+1]-tt[k])*RES, a0=alt[k], a1=alt[k+1], sg=mir?-.85:1;
-        const tan=V.norm(V.sub(base[k+1],base[k])), nrm=V.norm(V.cross(tan,[0,1,0])), lum=.5+.5*Math.abs(V.dot(nrm,V.norm([.55,0,.35])));
+        const tan=V.norm(V.sub(base[k+1],base[k])), nrm=V.norm(V.cross(tan,[0,1,0])), lum=.72+.28*Math.abs(V.dot(nrm,V.norm([.55,0,.35])));
         for(let b=0;b<6;b++){ (function(f0,f1){
           function P(i,a,f){ return [base[i][0],sg*H*a*f,base[i][2]]; }
-          var q=[P(k,a0,f0),P(k+1,a1,f0),P(k+1,a1,f1),P(k,a0,f1)].map(cam.P), z=(q[0][2]+q[2][2])/2, fade=Math.pow(f1,.7); polys.push(q);
+          var q=[P(k,a0,f0),P(k+1,a1,f0),P(k+1,a1,f1),P(k,a0,f1)].map(cam.P), z=(q[0][2]+q[2][2])/2, fade=Math.pow(f1,.45); polys.push(q);
           items.push([z,function(){ texQuad(c,T,q,[[u0,RES*(1-f0*a0)],[u1,RES*(1-f0*a1)],[u1,RES*(1-f1*a1)],[u0,RES*(1-f1*a0)]],(mir?.40:lum)*fade*(ghost?.12:1)); }]); })(b/6,(b+1)/6); } }
       items.sort(function(a,b){return a[0]-b[0];}).forEach(function(it){ it[1](); }); }
     rx.setTransform(1,0,0,1,0,0); rx.clearRect(0,0,IW,IW); quads(rx,true); rx.globalCompositeOperation='destination-out'; rx.drawImage(veil,0,0); rx.globalCompositeOperation='source-over'; ox.drawImage(refl,0,0);
@@ -146,12 +158,15 @@ window.BBGO.then(function(E){
 
   var T0=Date.now(), tiles=null;
   wk.onmessage=function(e){ var m=e.data; if(m.t==='meta'){ pal=m.pal; return; } if(m.t!=='pv') return;
+    if(probing){ var b=new Uint8Array(m.buf), L=litOf(b,pal); if(L>LBEST){ LBEST=L; KBEST=PK; }
+      if(L<.55&&PK<7){ start(PK+1,true); return; }
+      probing=false; if(L<.55&&KBEST!==PK){ start(KBEST,false); return; } }
     if(!frames[m.i]){ frames[m.i]=new Uint8Array(m.buf); got++; }
     if(got<N){ var nx=0; while(frames[nx]) nx++; wk.postMessage({t:'job',job:Object.assign({},J,{__i:nx}),step:true}); return; }
-    wk.terminate(); tiles=frames.map(function(buf){ var c=document.createElement('canvas'); c.width=RES*2; c.height=RES; var x=c.getContext('2d'), im=x.createImageData(RES,RES), d=im.data;
+    wk.terminate(); pal=brighten(pal,frames); tiles=frames.map(function(buf){ var c=document.createElement('canvas'); c.width=RES*2; c.height=RES; var x=c.getContext('2d'), im=x.createImageData(RES,RES), d=im.data;
       for(var i=0,p=0;i<RES*RES;i++,p+=4){ var k=pal[buf[i]]||pal[0]; d[p]=k[0];d[p+1]=k[1];d[p+2]=k[2];d[p+3]=255; } x.putImageData(im,0,0); x.putImageData(im,RES,0); return c; });
     T0=Date.now(); requestAnimationFrame(tick); };
-  wk.postMessage({t:'job',job:Object.assign({},J,{__i:0}),step:true});
+  start(0,true);
   var last=0; function tick(t){ requestAnimationFrame(tick); if(t-last<40) return; last=t; var g=Math.floor((Date.now()-T0)/40)%(N*8); frame(tiles[g%N],g); }
   try{ var ff=new FontFace('Silkscreen','url(data:font/ttf;base64,'+String(window.BBF||'').trim()+')'); ff.load().then(function(f){ document.fonts.add(f); markKey=''; }); }catch(e){}
 });
