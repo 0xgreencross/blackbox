@@ -371,6 +371,8 @@ contract BLACKBOX is ERC721, ERC2981, Ownable {
             '{"seed":', uint256(seedOf(id)).toString(),
             ',"rec":', rec.toString(), ',"index":', index.toString(),
             ',"cap":', uint256(r.cap).toString(), ',"minted":', uint256(r.minted).toString(),
+            ',"minutes":', uint256(r.blockMinutes).toString(), ',"open":', uint256(r.windowOpen).toString(),
+            ',"deadline":', uint256(r.deadline).toString(), ',"now":', block.timestamp.toString(),
             ',"sealed":', tf,
             ',"state":"', state,
             '","label":"', label, '","passHash":"', hash, '"');

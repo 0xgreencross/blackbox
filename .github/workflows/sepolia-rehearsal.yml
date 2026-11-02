@@ -1,0 +1,63 @@
+name: Sepolia rehearsal
+# Manual only. Deploys chunk copies and BLACKBOX on Sepolia and runs the full lifecycle.
+on:
+  workflow_dispatch:
+    inputs:
+      step:
+        description: "What to run"
+        type: choice
+        options: [deploy, rehearse, both]
+        default: both
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sepolia-rehearsal
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      DEPLOYER_KEY: ${{ secrets.REGISTRAR_KEY }}
+      RPC_URL: https://ethereum-sepolia-rpc.publicnode.com
+      MAX_GWEI: "5"
+    defaults:
+      run:
+        working-directory: contract
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - name: install
+        run: npm ci --no-audit --no-fund
+      - name: compile
+        run: npx hardhat compile
+      - name: deploy
+        if: ${{ inputs.step == 'deploy' || inputs.step == 'both' }}
+        env:
+          NETWORK: sepolia
+          SCENE_PATH: scene/rehearsal_scene.js
+        run: node scripts/deploy.js --chunks --registrar self
+      - name: rehearse
+        if: ${{ inputs.step == 'rehearse' || inputs.step == 'both' }}
+        run: node scripts/rehearse.js
+      - name: upload deployments
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sepolia-deployments
+          path: contract/deployments/
+          if-no-files-found: ignore
+      - name: commit deployments
+        if: always()
+        working-directory: ${{ github.workspace }}
+        run: |
+          git config user.name "blackbox-robot"
+          git config user.email "robot@blackbox.invalid"
+          git add -f contract/deployments/
+          git diff --cached --quiet && exit 0
+          git commit -m "sepolia rehearsal [robot-receipt]"
+          git push || { git pull --rebase && git push; }
