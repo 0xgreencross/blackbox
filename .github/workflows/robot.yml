@@ -35,7 +35,7 @@ jobs:
         run: |
           git config user.name "blackbox-robot"
           git config user.email "robot@blackbox.invalid"
-          git add -A records/
+          mkdir -p records && git add -A records/ || true
           git diff --cached --quiet && exit 0
           git commit -m "robot receipts [robot-receipt]"
           if ! git push; then
