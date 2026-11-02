@@ -6,6 +6,7 @@ import {ERC2981} from "@openzeppelin/contracts/token/common/ERC2981.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {BlackboxImage} from "./BlackboxImage.sol";
 
 /*
   DITHERVOID // BLACKBOX. Greencross.
@@ -33,6 +34,8 @@ contract BLACKBOX is ERC721, ERC2981, Ownable {
     /// The PANDORA page in its three coats: the fourteen chunks' code hashes, chained in order (as GLASS).
     bytes32 public constant PAGE = 0x4b3ffe1cab65c035925ab5d4062e182ce781cbf90d045d8b057950493666f72f;
     uint16 public constant MAX_CAP = 13;
+    /// The recorder holds at most 24 records: it bounds the cost of reading the complete journey.
+    uint256 public constant MAX_RECORDS = 24;
     uint256 public constant EXTENSION = 10 minutes;
 
     // ------------------------------------------------------------------ records
@@ -54,6 +57,8 @@ contract BLACKBOX is ERC721, ERC2981, Ownable {
     /// Records 1..journeyCount make the complete journey. Fixed when the auction starts; filing then ends.
     uint256 public journeyCount;
     address public registrar;
+    /// The still image renderer, deployed with this contract (pure, holds nothing).
+    BlackboxImage public immutable imager;
 
     event Filed(uint256 indexed rec, bytes32 passHash, uint16 cap, uint128 price, uint64 windowOpen, uint64 deadline);
     event Landed(uint256 indexed rec, uint16 minted, uint16 cap, string dossier);
@@ -111,6 +116,7 @@ contract BLACKBOX is ERC721, ERC2981, Ownable {
         }
         require(acc == PAGE, "not the page");
         _engine = chunks_;
+        imager = new BlackboxImage();
         registrar = registrar_;
         _setDefaultRoyalty(TREASURY, ROYALTY_BPS);
         emit RegistrarSet(registrar_);
@@ -160,8 +166,8 @@ contract BLACKBOX is ERC721, ERC2981, Ownable {
     /// Filed at the boarding call, never on a schedule. The record number is explicit.
     function file(uint256 rec, bytes32 passHash, uint16 blockMinutes, uint64 windowOpen, uint64 deadline) external onlyRegistrar {
         if (!sceneLocked) revert NotLocked();
-        if (auction.end != 0) revert AuctionState();
-        if (rec != recordCount + 1) revert BadRecord();
+        if (auction.end != 0 || journeyCount != 0) revert AuctionState();   // a void auction does not reopen filing
+        if (rec != recordCount + 1 || rec > MAX_RECORDS) revert BadRecord();
         require(passHash != bytes32(0) && !hashUsed[passHash], "hash");
         require(blockMinutes > 0, "minutes");
         require(deadline > block.timestamp && deadline > windowOpen, "deadline");
@@ -355,7 +361,9 @@ contract BLACKBOX is ERC721, ERC2981, Ownable {
             name_ = "DITHERVOID // BLACKBOX // THE COMPLETE JOURNEY";
             bb = abi.encodePacked('{"seed":', uint256(seedOf(0)).toString(), ',"rec":0,"index":0,"sealed":false,"state":"JOURNEY","label":"THE COMPLETE JOURNEY","records":', _journey(), '}');
             attrs = abi.encodePacked('{"trait_type":"STATE","value":"JOURNEY"},{"trait_type":"RECORDS","value":', journeyCount.toString(), '}');
-            svg = _svg("THE COMPLETE JOURNEY", journeyCount.toString(), " RECORDS");
+            uint16[] memory mins = new uint16[](journeyCount);
+            for (uint256 i = 0; i < journeyCount; i++) mins[i] = records[i + 1].blockMinutes;
+            svg = imager.render(false, seedOf(0), mins);
             return (name_, bb, attrs, svg, false);
         }
         uint256 rec = id / 100;
@@ -382,7 +390,9 @@ contract BLACKBOX is ERC721, ERC2981, Ownable {
             '{"trait_type":"STATE","value":"', state, '"},',
             '{"trait_type":"HASH","value":"', hash, '"}');
         if (!sealed_) attrs = abi.encodePacked(attrs, _declassifiedAttrs(rec, r));
-        svg = _svg(string(label), state, "");
+        uint16[] memory one = new uint16[](1);
+        one[0] = r.blockMinutes;
+        svg = imager.render(sealed_, seedOf(id), one);
     }
 
     function _declassifiedAttrs(uint256 rec, Record storage r) private view returns (bytes memory) {
@@ -409,15 +419,6 @@ contract BLACKBOX is ERC721, ERC2981, Ownable {
             first = false;
         }
         out = abi.encodePacked(out, "]");
-    }
-
-    function _svg(string memory label, string memory line2, string memory line2b) private pure returns (bytes memory) {
-        return abi.encodePacked(
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><rect width="1000" height="1000" fill="#000"/>',
-            '<g font-family="Menlo,Consolas,monospace" text-anchor="middle"><text x="500" y="440" font-size="26" letter-spacing="8" fill="#a0a0a0">DITHERVOID // BLACKBOX</text>',
-            '<text x="500" y="530" font-size="56" letter-spacing="6" fill="#ffffff">', label, '</text>',
-            '<text x="500" y="600" font-size="22" letter-spacing="4" fill="#55555e">', line2, line2b, '</text>',
-            '<text x="500" y="940" font-size="18" letter-spacing="4" fill="#55555e">THE RECORD LIVES IN THE ANIMATION</text></g></svg>');
     }
 
     // ------------------------------------------------------------------ tiny libs

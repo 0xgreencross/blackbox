@@ -8,6 +8,8 @@ const PAGE_SHA = "b638f728c8068f8892acf3772d7463f5cdb89e785c15a05757a7010cbc70e4
 const FIX = path.join(__dirname, "..", "fixtures");
 const chunkBytes = () => fs.readdirSync(path.join(FIX, "chunks")).sort().map(f => fs.readFileSync(path.join(FIX, "chunks", f)));
 const GAS = {};
+let PROBE = null;
+async function uriGas(bb, id) { if (!PROBE) PROBE = await (await ethers.getContractFactory("GasProbe")).deploy(); const [g] = await PROBE.measure(await bb.getAddress(), id, { gasLimit: 55000000 }); return g; }
 const { coatScene, coatFont, uncoat, parts } = require("../scripts/coat.js");
 
 /* deploys a contract whose runtime code is exactly `code` */
@@ -17,6 +19,7 @@ async function deployCode(signer, code) {
   const rc = await tx.wait();
   return rc.contractAddress;
 }
+const SCHEME_HEX = "ff1f9c19f0ffbbff000a5d2b39ff1400ff00ff2a1aff7a00ff9b00ff5fc85fd0ffff00ff6a5cff19c6ff4400ff42424c8a8a96ff1f9caaff00eaff00ffff00ff2fd6ff71ceff00cc00aaff00ffee00ffffff9500ffd000ffde002eff9ec8ff2eff00ffb400ffff2fffff00ffff2e6aff7a2effb40000aa0000ff4100ff41690999e3058c4ab144ff00c80ea1f05dffffff00e000fa0086ffff644aaa3ec8190dffffff00c800ff005dffffff00ffff770000ff74ff0085ff00ff00ffff0000ffff000000ff001e152b722fcd99f8b5c200a20994ee00c3745529edef472bf1da2e";
 const TEST_SCENE = 'window.BBGO.then(function(E){window.OUT={core:E.V3_CORE.length,core2:E.V3_CORE2.length,driver:E.V3_DRIVER.length,card:E.CARD_CH.length,seed:window.BB.seed,state:window.BB.state,font:window.BBF.trim().length};});';
 const DOSSIER = "DPS|TPE|2026-11-03|14A|325|3780|A333";
 const H = n => ethers.keccak256(ethers.toUtf8Bytes("M1SYNTHETIC/PASS " + n));
@@ -123,7 +126,7 @@ describe("BLACKBOX", function () {
     const { bb, reg, a } = await fixture();
     await fileRec(bb, reg, 1, 325);
     await bb.connect(a).mint(1, { value: (await bb.records(1)).price });
-    GAS.tokenURI_sealed = await bb.tokenURI.estimateGas(101);
+    GAS.tokenURI_sealed = await uriGas(bb, 101);
     let { json, html } = decodeURI_(await bb.tokenURI(101));
     expect(json.name).to.equal("BLACKBOX REC 001 // 01");
     const s = JSON.stringify(json) + html.slice(0, 2000);
@@ -133,7 +136,10 @@ describe("BLACKBOX", function () {
     const gz = Buffer.from(m[1].trim(), "base64");
     const page = zlib.gunzipSync(gz);
     expect(crypto.createHash("sha256").update(page).digest("hex")).to.equal(PAGE_SHA);
-    expect(Buffer.from(json.image.slice(26), "base64").toString().includes("REC 001 // 01")).to.equal(true);
+    const svgS = Buffer.from(json.image.slice(26), "base64").toString();
+    expect(svgS.startsWith("<svg")).to.equal(true); expect(/<text/i.test(svgS)).to.equal(false);
+    for (const g of ["303036", "55555e", "7a7a86"]) expect(svgS.includes("#" + g)).to.equal(true);
+    expect(svgS.includes("\u0000")).to.equal(false); fs.writeFileSync(path.join(FIX, "preview_sealed.svg"), svgS); GAS.svg_bytes_sealed = svgS.length;
     for (const ch of JSON.stringify(json)) expect(ch).to.not.equal("—");
     // run the loader exactly as a browser would: it must hand the scene the three cores and the card list
     const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(x => x[1]);
@@ -144,8 +150,14 @@ describe("BLACKBOX", function () {
     expect(ctx.OUT).to.deep.equal({ core: 177039, core2: 1129, driver: 13772, card: 37, seed: Number(await bb.seedOf(101)), state: "SEALED", font: Math.ceil(32220 / 3) * 4 });
     // declassified
     await bb.connect(reg).land(1, DOSSIER);
-    GAS.tokenURI_declassified = await bb.tokenURI.estimateGas(101);
+    GAS.tokenURI_declassified = await uriGas(bb, 101);
     ({ json, html } = decodeURI_(await bb.tokenURI(101)));
+    const svgD = Buffer.from(json.image.slice(26), "base64").toString();
+    expect(/<text/i.test(svgD)).to.equal(false);
+    const img = await ethers.getContractAt("BlackboxImage", await bb.imager());
+    let si = Number(await img.schemeIndex(Number(await bb.seedOf(101)))); if (si > 24) si = 0;
+    expect(svgD.includes("#" + SCHEME_HEX.slice(si * 18, si * 18 + 6))).to.equal(true);
+    expect(svgD.includes("\u0000")).to.equal(false); fs.writeFileSync(path.join(FIX, "preview_declassified.svg"), svgD); GAS.svg_bytes_declassified = svgD.length;
     const at = Object.fromEntries(json.attributes.map(x => [x.trait_type, x.value]));
     expect(at.ROUTE).to.equal("DPS > TPE"); expect(at.SEAT).to.equal("14A"); expect(at.KM).to.equal("3780"); expect(at["EDITION CAP"]).to.equal(5); expect(at.MINTED).to.equal(1);
     expect(html.includes('"dossier":"' + DOSSIER + '"')).to.equal(true);
@@ -193,8 +205,11 @@ describe("BLACKBOX", function () {
     expect(await bb.ownerOf(0)).to.equal(a.address);
     expect(await ethers.provider.getBalance(await bb.getAddress())).to.equal(0n);
     await expect(bb.settleAuction()).to.be.revertedWithCustomError(bb, "AuctionState");
-    GAS.tokenURI_journey = await bb.tokenURI.estimateGas(0);
+    GAS.tokenURI_journey = await uriGas(bb, 0);
     const { json } = decodeURI_(await bb.tokenURI(0));
+    const svgJ = Buffer.from(json.image.slice(26), "base64").toString();
+    expect(/<text/i.test(svgJ)).to.equal(false); expect((svgJ.match(/<polygon/g) || []).length).to.equal(24);
+    fs.writeFileSync(path.join(FIX, "preview_journey.svg"), svgJ); GAS.svg_bytes_journey_2rec = svgJ.length;
     expect(json.name).to.include("THE COMPLETE JOURNEY");
     expect(await bb.seedOf(0)).to.equal(BigInt(ethers.keccak256(ethers.concat([H(1), H(2)])).slice(0, 10)));
   });
@@ -208,9 +223,19 @@ describe("BLACKBOX", function () {
     await expect(bb.ownerOf(0)).to.be.revertedWithCustomError(bb, "ERC721NonexistentToken");
     expect((await bb.auction()).end).to.equal(0n);
     expect(await bb.journeyCount()).to.equal(1);
+    const tv = await time.latest();
+    await expect(bb.connect(reg).file(2, H(2), 325, tv, tv + 3600)).to.be.revertedWithCustomError(bb, "AuctionState");   // void does not reopen filing
     const t = await time.latest(); await bb.startAuction(t, 100, 0);
     await bb.connect(a).bid({ value: 1n }); await time.increase(700); await bb.settleAuction();   // a bid in the last 10 minutes extends to now + 10 min
     expect(await bb.ownerOf(0)).to.equal(a.address);
+  });
+
+  it("the recorder holds at most 24 records", async () => {
+    const { bb, reg } = await fixture();
+    expect(await bb.MAX_RECORDS()).to.equal(24);
+    const t = await time.latest();
+    for (let i = 1; i <= 24; i++) await bb.connect(reg).file(i, H(i), 325, t, t + 86400);
+    await expect(bb.connect(reg).file(25, H(25), 325, t, t + 86400)).to.be.revertedWithCustomError(bb, "BadRecord");
   });
 
   it("ERC-4906 interface, no renounce", async () => {
@@ -235,9 +260,24 @@ describe("BLACKBOX", function () {
     await fileRec(bb, reg, 1, 325);
     await bb.connect(a).mint(1, { value: (await bb.records(1)).price });
     GAS.upload_scene_25KB = sceneGas + " (" + sParts + " parts)"; GAS.upload_font = fontGas + " (" + fParts + " parts)";
-    GAS.tokenURI_25KB_scene_real_font = await bb.tokenURI.estimateGas(101);
+    GAS.tokenURI_25KB_scene_real_font = await uriGas(bb, 101);
     const { html } = decodeURI_(await bb.tokenURI(101));
     expect(html.includes("x".repeat(100))).to.equal(true);
+  });
+
+  it("image roll: Solidity schemeIndex equals the engine's mulberry32 second draw for 20 seeds", async () => {
+    const { bb } = await fixture({ lock: false });
+    const img = await ethers.getContractAt("BlackboxImage", await bb.imager());
+    const mb = a => function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    let core = null; const cp = path.join(__dirname, "..", "..", "..", "v3core.js");
+    if (fs.existsSync(cp)) { const src = fs.readFileSync(cp, "utf8"); const i = src.indexOf("function mulberry32"); core = vm.runInNewContext("(" + src.slice(i, src.indexOf("\n", i)) + ")", {}); }
+    const seeds = [0, 1, 2, 0xC41E, 0xFFFFFFFF, 1483259616, 24628620, 3485379154, 2781585716, 732134454, 1353968482, 3236459529];
+    for (let k = 0; seeds.length < 20; k++) seeds.push(Number(BigInt(ethers.keccak256(ethers.toBeHex(k, 32)).slice(0, 10))));
+    for (const s of seeds) {
+      const r = mb((s ^ 0xC41E) >>> 0); r(); const js = Math.floor(r() * 27);
+      if (core) { const c = core((s ^ 0xC41E) >>> 0); c(); expect(Math.floor(c() * 27)).to.equal(js, "core " + s); }
+      expect(Number(await img.schemeIndex(s))).to.equal(js, "seed " + s);
+    }
   });
 
   it("royalty and stray ETH", async () => {

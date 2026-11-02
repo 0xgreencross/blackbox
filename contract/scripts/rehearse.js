@@ -46,6 +46,9 @@ async function main() {
   const art = C.loadArtifact();
   const bb = new ethers.Contract(dep.contract.address, art.abi, wallet);
   const local = chainId === 31337n;
+  /* public RPCs are load-balanced and lag each other: every state change waits for 2 confirmations
+     (1 on the local automining chain, where a second block would never come) */
+  const CONF = local ? 1 : 2;
   receipt.chainId = chainId.toString(); receipt.contract = dep.contract.address; receipt.signer = me;
   console.log(`rehearsal on chain ${chainId}, contract ${dep.contract.address}, signer ${me}`);
 
@@ -53,7 +56,7 @@ async function main() {
     const t = await fn(await C.opts(provider, me, maxGwei));
     console.log(`  tx ${label}: ${t.hash}`);
     const entry = { label, hash: t.hash }; receipt.txs.push(entry); save();
-    const rc = await t.wait();
+    const rc = await t.wait(CONF);
     entry.block = rc.blockNumber; entry.status = rc.status; entry.gasUsed = rc.gasUsed.toString(); save();
     if (rc.status !== 1) throw new Error(label + " reverted");
     return rc;
@@ -75,6 +78,9 @@ async function main() {
   const windowOpen = now, deadline = now + 180;
   const cap = await bb.capFor(325), price = await bb.priceFor(cap);
   check("capFor(325) is 5", cap === 5n, cap);
+  /* the node that estimates file() may not have seen the lock yet: wait until a simulated file() no longer reverts NotLocked */
+  const fileSim = await poll(async () => { const e = await revertName(bb.file.staticCall(rec, passHash, 325, windowOpen, deadline)); return e === "NotLocked" ? null : (e || "ok"); }, 60000);
+  check("file() simulates cleanly after the lock", fileSim === "ok", fileSim);
   await tx("file", f => bb.file(rec, passHash, 325, windowOpen, deadline, f));
   const r = await poll(async () => { const x = await bb.records(rec); return x.passHash === passHash ? x : null; }, 30000);
   check("record filed with expected price and cap", r && r.price === price && r.cap === cap, r && r.price);
@@ -90,7 +96,7 @@ async function main() {
   save();
   const blocks = [];
   for (const [t, entry] of sent) {
-    const rc = await t.wait(); entry.block = rc.blockNumber; entry.status = rc.status; entry.gasUsed = rc.gasUsed.toString(); blocks.push(rc.blockNumber);
+    const rc = await t.wait(CONF); entry.block = rc.blockNumber; entry.status = rc.status; entry.gasUsed = rc.gasUsed.toString(); blocks.push(rc.blockNumber);
     if (rc.status !== 1) throw new Error(entry.label + " reverted");
   }
   save();

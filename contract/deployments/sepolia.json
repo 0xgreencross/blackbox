@@ -1,7 +1,6 @@
 {
   "network": "sepolia",
   "chainId": "11155111",
-  "steps": {},
   "deployer": "0x02A8018D9312c8b89269Cc3761dC95e7BEC21ab8",
   "registrar": "0x02A8018D9312c8b89269Cc3761dC95e7BEC21ab8",
   "chunks": [
@@ -88,48 +87,5 @@
       "address": "0xD8B44BF7e62ae7480c2c8b6Dee2d25538b6B9b79"
     }
   ],
-  "scene": [
-    {
-      "tx": "0x5b399546c54443cefb12de82a96d6927cdecd47f016ee1bcd66c0a9569f795b9",
-      "block": 12047816,
-      "gasUsed": "37613897"
-    },
-    {
-      "tx": "0xb1bb723770df1ec93db5ce670789b4944f30faf11896e5e324879c9aeff70770",
-      "block": 12047817,
-      "gasUsed": "11392811"
-    }
-  ],
-  "font": [
-    {
-      "tx": "0x5187c6a062428a0cacc9d639085fdd80fc4126cc76064bf5a3063da5fc58ceb4",
-      "block": 12047818,
-      "gasUsed": "37614041"
-    },
-    {
-      "tx": "0x7e9e1f87d222e67cb590904d9f6b9af880b3bb8625d86880558f1f127234aedb",
-      "block": 12047819,
-      "gasUsed": "37516121"
-    },
-    {
-      "tx": "0x781f25291afae66a790d32eac30e24fa1f9f8de5b9f24bc8bcf78c47b6b7f59a",
-      "block": 12047820,
-      "gasUsed": "37516121"
-    },
-    {
-      "tx": "0x2fc3a921054ced9dabb7c4a8e6f6e4595610b42d8307fbb6b571368c9c649dcd",
-      "block": 12047821,
-      "gasUsed": "7130486"
-    }
-  ],
-  "contract": {
-    "tx": "0x0376e266cbeb8fea4ce6d0fb0da0bf49baad55b47956460e2d771b36f0c59d37",
-    "block": 12047815,
-    "gasUsed": "38442961",
-    "address": "0x0236ea903992457E0336FBB9eae66a2E089b952C"
-  },
-  "sceneBytes": 31136,
-  "fontBytes": 76384,
-  "done": true,
-  "updatedAt": "2026-11-02T11:22:36.800Z"
+  "steps": {}
 }
