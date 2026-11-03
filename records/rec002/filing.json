@@ -1,0 +1,12 @@
+{
+ "rec": 2,
+ "passHash": "0x6cbfc59d0ffca348e56590270725a166a38554c203d5ee1d7832099d8c3dfc81",
+ "blockMinutes": 695,
+ "windowOpen": "2026-11-03T15:16:23Z",
+ "deadline": "2026-11-04T04:25:00Z",
+ "cap": 12,
+ "price": "17466666666666666",
+ "allowPastOpen": false,
+ "dossier": "TPE|LAX|2026-11-03|73J|695|10922|",
+ "network": "mainnet"
+}
