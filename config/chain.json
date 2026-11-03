@@ -1,6 +1,6 @@
 {
   "mainnet": {
-    "contract": "",
+    "contract": "0x692EF95A437914e64b686Bf5D0E090328f1c1D4c",
     "rpc": "https://ethereum-rpc.publicnode.com",
     "chainId": 1
   },
