@@ -1,0 +1,12 @@
+{
+ "rec": 1,
+ "passHash": "0x4f757466d04a1f3d9b652f349707e7eae3a8487be2635c2a856fe58d823cd181",
+ "blockMinutes": 325,
+ "windowOpen": "2026-11-03T07:15:02Z",
+ "deadline": "2026-11-03T14:10:00Z",
+ "cap": 5,
+ "price": "48733333333333333",
+ "allowPastOpen": false,
+ "dossier": "DPS|TPE|2026-11-03|39D|325|3818|",
+ "network": "mainnet"
+}
