@@ -1,0 +1,12 @@
+{
+ "rec": 3,
+ "passHash": "0xa457142b1fcd9a14111e9b057107075c867c2fd9066960f63c42f4ef1b9157a8",
+ "blockMinutes": 303,
+ "windowOpen": "2026-11-04T18:14:51Z",
+ "deadline": "2026-11-05T01:07:00Z",
+ "cap": 5,
+ "price": "48733333333333333",
+ "allowPastOpen": false,
+ "dossier": "LAX|MIA|2026-11-04|12F|303|3763|",
+ "network": "mainnet"
+}
