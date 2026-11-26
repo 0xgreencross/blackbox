@@ -1,0 +1,12 @@
+{
+ "rec": 5,
+ "passHash": "0x8663ffea50941d1cfa849d73143a34fcd1145ec6b9397c8690524c77ebf35e31",
+ "blockMinutes": 155,
+ "windowOpen": "2026-11-26T14:01:03Z",
+ "deadline": "2026-11-26T18:00:00Z",
+ "cap": 3,
+ "price": "57666666666666666",
+ "allowPastOpen": false,
+ "dossier": "AUS|MIA|2026-11-26|14C|155|1773|",
+ "network": "mainnet"
+}
